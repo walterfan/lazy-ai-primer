@@ -1,0 +1,40 @@
+version: "3.8"
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: es_node
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=false
+      - xpack.security.transport.ssl.enabled=false
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    networks:
+      - es-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -u ${ELASTIC_USERNAME}:${ELASTIC_PASSWORD} http://localhost:9200/_cluster/health | grep -q 'status'"]
+      interval: 10s
+      timeout: 10s
+      retries: 120
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTICSEARCH_USERNAME=${ELASTIC_USERNAME}
+      - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD}
+    networks:
+      - es-net
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+networks:
+  es-net:
+    driver: bridge
