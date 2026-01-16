@@ -1,4 +1,3 @@
-version: "3.8"
 services:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
@@ -13,7 +12,7 @@ services:
     ports:
       - "9200:9200"
     volumes:
-      - es_data:./data
+      - es_data:/usr/share/elasticsearch/data
     networks:
       - es-net
     healthcheck:
