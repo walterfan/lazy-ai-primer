@@ -28,6 +28,10 @@
    :caption: Contents:
 
    1.basic/index
+   2.rag/index
+   3.vibe/index
+   4.langchain/index
+   5.langgraph/index
 
 Indices and tables
 ==================

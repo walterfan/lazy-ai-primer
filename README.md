@@ -1,6 +1,7 @@
 # Artificial Intelligence Primer
 
-## What's AI
+## 🎯 What's AI
+
 > ``The exciting new effort to make computers think ... machines with minds, in the full and literal sense'' (Haugeland, 1985)
 
 > ``The automation of activities that we associate with human thinking, activities such as decision-making, problem solving, learning ...'' (Bellman, 1978)
@@ -45,4 +46,110 @@
 
     人工智能包括符号编程、问题解决和搜索的研究, 包括图像与音视频的识别与生成, 自然语言处理, 机器学习, 神经网络, 机器人, 等等
 
-Acting humanly: The Turing Test approach
+---
+
+## 📚 人工智能入门教程 - 从基础概念到实战应用
+
+### 1. 人工智能基础 (AI Fundamentals)
+
+参考《人工智能：现代方法》，介绍 AI 基本概念，使用 PyTorch 实践。
+
+| 教程 | 主题 | 内容 |
+|------|------|------|
+| [Tutorial 1](doc/source/1.basic/tutorial_01_what_is_ai.rst) | 什么是人工智能 | AI 定义、历史、主要流派 |
+| [Tutorial 2](doc/source/1.basic/tutorial_02_intelligent_agents.rst) | 智能体 | Agent 概念、类型、设计 |
+| [Tutorial 3](doc/source/1.basic/tutorial_03_search_algorithms.rst) | 搜索算法 | BFS、DFS、A* 算法 |
+| [Tutorial 4](doc/source/1.basic/tutorial_04_knowledge_representation.rst) | 知识表示与推理 | 逻辑、语义网络、知识图谱 |
+| [Tutorial 5](doc/source/1.basic/tutorial_05_machine_learning.rst) | 机器学习基础 | 监督/无监督/强化学习 |
+| [Tutorial 6](doc/source/1.basic/tutorial_06_neural_networks.rst) | 神经网络 | 感知机、MLP、反向传播 |
+| [Tutorial 7](doc/source/1.basic/tutorial_07_pytorch_deep_learning.rst) | PyTorch 深度学习 | 张量、自动微分、训练流程 |
+| [Tutorial 8](doc/source/1.basic/tutorial_08_nlp_fundamentals.rst) | 自然语言处理 | 词嵌入、RNN、Transformer |
+| [Tutorial 9](doc/source/1.basic/tutorial_09_computer_vision.rst) | 计算机视觉 | CNN、图像分类、目标检测 |
+| [Tutorial 10](doc/source/1.basic/tutorial_10_reinforcement_learning.rst) | 强化学习 | Q-Learning、DQN、策略梯度 |
+
+### 2. RAG 检索增强生成 (Retrieval-Augmented Generation)
+
+让大语言模型利用外部知识库生成更准确的回答。
+
+| 教程 | 主题 | 内容 |
+|------|------|------|
+| [Tutorial 1](doc/source/2.rag/tutorial_01_introduction.rst) | RAG 入门 | 概念、原理、与微调对比 |
+| [Tutorial 2](doc/source/2.rag/tutorial_02_document_loading.rst) | 文档加载 | PDF、Word、网页等格式 |
+| [Tutorial 3](doc/source/2.rag/tutorial_03_text_chunking.rst) | 文本分块 | 字符、语义、特定格式分块 |
+| [Tutorial 4](doc/source/2.rag/tutorial_04_embeddings.rst) | 向量嵌入 | 嵌入模型、相似度计算 |
+| [Tutorial 5](doc/source/2.rag/tutorial_05_vector_database.rst) | 向量数据库 | Chroma、FAISS、索引优化 |
+| [Tutorial 6](doc/source/2.rag/tutorial_06_retrieval_strategies.rst) | 检索策略 | MMR、混合检索、重排序 |
+| [Tutorial 7](doc/source/2.rag/tutorial_07_prompt_engineering.rst) | Prompt 工程 | RAG 专用 Prompt 设计 |
+| [Tutorial 8](doc/source/2.rag/tutorial_08_evaluation.rst) | RAG 评估 | 检索/生成指标、端到端评估 |
+| [Tutorial 9](doc/source/2.rag/tutorial_09_advanced_rag.rst) | 高级 RAG | 查询改写、分解、自我反思 |
+| [Tutorial 10](doc/source/2.rag/tutorial_10_production.rst) | 生产部署 | FastAPI、Docker、监控 |
+
+### 3. 氛围编程 (Vibe Coding)
+
+AI 辅助编程的新范式，与 AI 协作的高效开发方法。
+
+| 教程 | 主题 | 内容 |
+|------|------|------|
+| [Tutorial 1](doc/source/3.vibe/tutorial_01_introduction.rst) | 氛围编程入门 | 概念、核心理念、能力模型 |
+| [Tutorial 2](doc/source/3.vibe/tutorial_02_ai_assistants.rst) | AI 编程助手 | Cursor、Copilot、Aider 对比 |
+| [Tutorial 3](doc/source/3.vibe/tutorial_03_cursor_commands.rst) | Cursor 命令 | Chat、Inline Edit、Composer |
+| [Tutorial 4](doc/source/3.vibe/tutorial_04_rules_config.rst) | Rules 配置 | .cursorrules、项目规则 |
+| [Tutorial 5](doc/source/3.vibe/tutorial_05_prompting_skills.rst) | 提示词技巧 | RACE 框架、高级技巧 |
+| [Tutorial 6](doc/source/3.vibe/tutorial_06_mcp_server.rst) | MCP Server | 扩展 AI 能力、自定义开发 |
+| [Tutorial 7](doc/source/3.vibe/tutorial_07_spec_driven_dev.rst) | 规格驱动开发 | SDD 方法论、规格模板 |
+| [Tutorial 8](doc/source/3.vibe/tutorial_08_code_review.rst) | AI 代码审查 | 审查维度、自动化集成 |
+| [Tutorial 9](doc/source/3.vibe/tutorial_09_testing_debugging.rst) | 测试与调试 | 测试生成、错误分析 |
+| [Tutorial 10](doc/source/3.vibe/tutorial_10_best_practices.rst) | 最佳实践 | 工作流、协作、持续改进 |
+
+### 4. LangChain 入门
+
+构建 LLM 应用的框架。
+
+| 教程 | 主题 | 内容 |
+|------|------|------|
+| [Tutorial 1](doc/source/4.langchain/tutorial_01_introduction.rst) | LangChain 入门 | 概念、安装、基本用法 |
+| [Tutorial 2](doc/source/4.langchain/tutorial_02_llm_chat_models.rst) | LLM 与 Chat Models | 模型调用、参数配置 |
+| [Tutorial 3](doc/source/4.langchain/tutorial_03_prompt_templates.rst) | Prompt Templates | 模板设计、变量注入 |
+| [Tutorial 4](doc/source/4.langchain/tutorial_04_chains.rst) | Chains | 链式调用、组合链 |
+| [Tutorial 5](doc/source/4.langchain/tutorial_05_memory.rst) | Memory | 对话记忆、上下文管理 |
+| [Tutorial 6](doc/source/4.langchain/tutorial_06_agents_tools.rst) | Agents & Tools | 智能体、工具调用 |
+| [Tutorial 7](doc/source/4.langchain/tutorial_07_rag.rst) | RAG 实现 | 检索增强生成实战 |
+| [Tutorial 8](doc/source/4.langchain/tutorial_08_content_agent.rst) | 内容创作 Agent | 自媒体内容生成 |
+| [Tutorial 9](doc/source/4.langchain/tutorial_09_publishing_agent.rst) | 发布 Agent | 多平台发布自动化 |
+| [Tutorial 10](doc/source/4.langchain/tutorial_10_complete_workflow.rst) | 完整工作流 | 端到端自媒体系统 |
+
+### 5. LangGraph 入门
+
+构建有状态、多步骤 AI 应用的框架。
+
+| 教程 | 主题 | 内容 |
+|------|------|------|
+| [Tutorial 1](doc/source/5.langgraph/tutorial_01_introduction.rst) | LangGraph 入门 | 核心概念、与 LangChain 对比 |
+| [Tutorial 2](doc/source/5.langgraph/tutorial_02_state_graph.rst) | State 与 Graph | 状态定义、更新机制 |
+| [Tutorial 3](doc/source/5.langgraph/tutorial_03_nodes_edges.rst) | Nodes 与 Edges | 节点类型、边的定义 |
+| [Tutorial 4](doc/source/5.langgraph/tutorial_04_conditional_routing.rst) | 条件路由 | 动态路径选择、LLM 路由 |
+| [Tutorial 5](doc/source/5.langgraph/tutorial_05_cycles_loops.rst) | 循环与迭代 | 迭代优化、重试机制 |
+| [Tutorial 6](doc/source/5.langgraph/tutorial_06_human_in_loop.rst) | Human-in-the-Loop | 人工干预、审核流程 |
+| [Tutorial 7](doc/source/5.langgraph/tutorial_07_persistence.rst) | 持久化与检查点 | SQLite/PostgreSQL、状态恢复 |
+| [Tutorial 8](doc/source/5.langgraph/tutorial_08_multi_agent.rst) | 多 Agent 协作 | Supervisor 模式、团队协作 |
+| [Tutorial 9](doc/source/5.langgraph/tutorial_09_content_workflow.rst) | 自媒体内容工作流 | 完整实战案例 |
+| [Tutorial 10](doc/source/5.langgraph/tutorial_10_production.rst) | 生产部署 | FastAPI、Docker、监控 |
+
+---
+
+## 📖 推荐阅读
+
+- 《人工智能：现代方法》- Stuart Russell, Peter Norvig
+- 《深度学习》- Ian Goodfellow, Yoshua Bengio, Aaron Courville
+- 《动手学深度学习》- 李沐等
+
+## 🔗 相关链接
+
+- [LangChain 官方文档](https://python.langchain.com/)
+- [LangGraph 官方文档](https://langchain-ai.github.io/langgraph/)
+- [PyTorch 官方文档](https://pytorch.org/docs/)
+- [Hugging Face](https://huggingface.co/)
+
+## 📝 License
+
+MIT License
