@@ -135,6 +135,23 @@ AI 辅助编程的新范式，与 AI 协作的高效开发方法。
 | [Tutorial 9](doc/source/5.langgraph/tutorial_09_content_workflow.rst) | 自媒体内容工作流 | 完整实战案例 |
 | [Tutorial 10](doc/source/5.langgraph/tutorial_10_production.rst) | 生产部署 | FastAPI、Docker、监控 |
 
+### 6. LlamaIndex 入门
+
+连接 LLM 与外部数据的强大框架，专注于 RAG 和知识库构建。
+
+| 教程 | 主题 | 内容 |
+|------|------|------|
+| [Tutorial 1](doc/source/6.llamaindex/tutorial_01_introduction.rst) | LlamaIndex 入门 | 核心概念、Document/Node/Index |
+| [Tutorial 2](doc/source/6.llamaindex/tutorial_02_data_loading.rst) | 数据加载 | PDF、数据库、Web、云存储 |
+| [Tutorial 3](doc/source/6.llamaindex/tutorial_03_node_parsing.rst) | 节点解析 | 文本分割、语义分块、层次化 |
+| [Tutorial 4](doc/source/6.llamaindex/tutorial_04_embeddings_vectorstore.rst) | 嵌入与向量存储 | Chroma、FAISS、Milvus |
+| [Tutorial 5](doc/source/6.llamaindex/tutorial_05_index_types.rst) | 索引类型 | Vector、Summary、Keyword、Tree |
+| [Tutorial 6](doc/source/6.llamaindex/tutorial_06_query_engine.rst) | 查询引擎 | 响应模式、流式输出、自定义 |
+| [Tutorial 7](doc/source/6.llamaindex/tutorial_07_retrieval_strategies.rst) | 检索策略 | 混合检索、重排序、句子窗口 |
+| [Tutorial 8](doc/source/6.llamaindex/tutorial_08_agents_tools.rst) | Agents 与 Tools | ReAct Agent、工具开发 |
+| [Tutorial 9](doc/source/6.llamaindex/tutorial_09_knowledge_base.rst) | 构建知识库系统 | 企业级知识库完整实现 |
+| [Tutorial 10](doc/source/6.llamaindex/tutorial_10_production.rst) | 生产部署 | Docker、缓存、监控、安全 |
+
 ---
 
 ## 📖 推荐阅读
@@ -147,9 +164,10 @@ AI 辅助编程的新范式，与 AI 协作的高效开发方法。
 
 - [LangChain 官方文档](https://python.langchain.com/)
 - [LangGraph 官方文档](https://langchain-ai.github.io/langgraph/)
+- [LlamaIndex 官方文档](https://docs.llamaindex.ai/)
 - [PyTorch 官方文档](https://pytorch.org/docs/)
 - [Hugging Face](https://huggingface.co/)
 
 ## 📝 License
 
-MIT License
+CC0-1.0 license
