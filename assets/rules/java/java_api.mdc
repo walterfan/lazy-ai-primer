@@ -1,0 +1,133 @@
+---
+description: REST API design and documentation standards
+globs: "*.java"
+alwaysApply: false
+---
+
+## API Design
+
+### 1. REST Controllers
+- Use appropriate HTTP methods (GET, POST, PUT, DELETE)
+- Version APIs in package structure (`controller/v1/`)
+- Return standard response objects (e.g., `SuccessResponse`, `ListResponse`)
+- Include OpenAPI/Swagger annotations for documentation
+
+### 2. Request/Response Objects
+- Separate request/response DTOs from domain entities
+- Use Lombok for DTOs (`@Getter`, `@Setter`)
+- Validate request objects with Bean Validation
+- Include JavaDoc for complex request/response structures
+
+## OpenAPI/Swagger Documentation
+
+### Overview
+Use **SpringDoc OpenAPI** to automatically generate OpenAPI 3.0 documentation from Spring controllers. SpringDoc scans Spring MVC controllers and generates the OpenAPI specification automatically with minimal annotations.
+
+### Maven Dependency
+```xml
+<dependency>
+    <groupId>org.springdoc</groupId>
+    <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+    <version>2.8.4</version>
+</dependency>
+```
+
+### Configuration
+- Create a `SwaggerConfig` class with `@OpenAPIDefinition` to define API info
+- Configure security schemes with `@SecuritySchemes` annotation
+- Enable/disable via configuration property: `swagger.enabled=true`
+- Customize base path: `springdoc.api-docs.path=/api-docs` (default: `/v3/api-docs`)
+
+### Access Points
+- **Swagger UI**: `http://localhost:8080/swagger-ui.html` (or custom path)
+- **OpenAPI JSON**: `http://localhost:8080/v3/api-docs`
+- **OpenAPI YAML**: `http://localhost:8080/v3/api-docs.yaml`
+
+### Usage Pattern
+- **[Recommended]** Use `@Operation` annotation on endpoints for summary and description
+- **[Recommended]** Use `@SecurityRequirement` to document authentication requirements
+- SpringDoc automatically discovers request/response types from method signatures
+- Use `@Schema` on DTOs for enhanced field documentation (optional but recommended)
+
+**Example:**
+```java
+@RestController
+@RequestMapping("/api/v1/users")
+public class UserController {
+    
+    @GetMapping("/{id}")
+    @Operation(
+        summary = "Get user by ID",
+        description = "Retrieves a user by their unique identifier",
+        security = @SecurityRequirement(name = "BearerAuth")
+    )
+    public ResponseEntity<UserResponse> getUser(@PathVariable String id) {
+        // Implementation
+    }
+}
+```
+
+### Security Schemes
+- Define security schemes in `SwaggerConfig` using `@SecurityScheme` annotation
+- Common types: API Key, HTTP Bearer (JWT), OAuth2
+- Reference scheme names via constants in your config class
+- Apply security requirements to endpoints using `@SecurityRequirement`
+
+## Documentation Standards
+
+### 1. JavaDoc Requirements
+- Document all public classes and interfaces
+- Document public methods with:
+  - Purpose/behavior description
+  - `@param` for each parameter
+  - `@return` for return values
+  - `@throws` for declared exceptions
+- Include usage examples for complex APIs
+
+### 2. Code Comments
+
+#### Comment Standards
+- **[Mandatory]** Explain "why" not "what" (code should be self-explanatory)
+- **[Mandatory]** Document complex business logic and algorithms
+- **[Mandatory]** Flag TODOs with owner and date: `// TODO(username YYYY-MM-DD): description`
+- **[Mandatory]** Update comments when code changes
+- **[Mandatory]** Remove commented-out code before committing
+
+#### Comment Types
+- **Class-level comments**: Describe the purpose and usage of the class
+- **Method comments**: JavaDoc format for public methods
+- **Inline comments**: Explain non-obvious logic or business rules
+- **TODO comments**: Mark incomplete work with owner and date
+
+**Example:**
+```java
+/**
+ * Service for managing order notifications.
+ * Queries database for pending orders and sends notifications to customers.
+ * 
+ * @author Development Team
+ * @since 2025-11-11
+ */
+@Service
+public class OrderNotificationService {
+    // TODO(john 2025-01-15): Add rate limiting for notifications
+    
+    /**
+     * Groups orders by customer email.
+     * 
+     * @param orders List of orders
+     * @return Map of customer email to their orders
+     */
+    private Map<String, Set<OrderDto>> groupOrdersByCustomer(...) {
+        // Extract customer information from order
+        // This is needed because orders contain customer ID, not email
+        var customer = customerService.findById(order.getCustomerId());
+    }
+}
+```
+
+### 3. Configuration Documentation
+- Document all configuration properties
+- Include default values and valid ranges
+- Explain impact of configuration changes
+- Maintain configuration guide

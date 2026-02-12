@@ -1,0 +1,321 @@
+---
+description: Concurrency, goroutines, channels, and thread safety
+globs: "*.go"
+alwaysApply: false
+---
+
+## Goroutines and Channels
+
+### 1. Goroutine Best Practices
+- **[Mandatory]** Always consider goroutine lifecycle and cleanup
+- **[Mandatory]** Use `sync.WaitGroup` or channels to wait for goroutines to complete
+- **[Mandatory]** Always provide a way to stop long-running goroutines (context cancellation)
+- **[Mandatory]** Handle panics in goroutines with `defer recover()`
+- **[Recommended]** Use worker pools instead of spawning unlimited goroutines
+- **[Mandatory]** Document goroutine ownership and lifecycle
+
+**Example:**
+```go
+// ✅ Good: Proper goroutine management
+func processItems(ctx context.Context, items []Item) error {
+    var wg sync.WaitGroup
+    errCh := make(chan error, len(items))
+
+    for _, item := range items {
+        wg.Add(1)
+        go func(item Item) {
+            defer wg.Done()
+            defer func() {
+                if r := recover(); r != nil {
+                    log.Errorf("panic in goroutine: %v", r)
+                }
+            }()
+
+            if err := processItem(ctx, item); err != nil {
+                errCh <- err
+            }
+        }(item)
+    }
+
+    wg.Wait()
+    close(errCh)
+
+    // Collect errors
+    for err := range errCh {
+        if err != nil {
+            return err
+        }
+    }
+    return nil
+}
+
+// ❌ Bad: No goroutine management, potential goroutine leak
+func processItems(items []Item) {
+    for _, item := range items {
+        go processItem(item)  // No way to wait or cancel
+    }
+}
+```
+
+### 2. Channel Best Practices
+- **[Mandatory]** Only the sender should close channels, not receivers
+- **[Mandatory]** Check if channel is closed before sending (or use select with context)
+- **[Mandatory]** Use buffered channels appropriately to avoid deadlocks
+- **[Recommended]** Use `select` with `context.Done()` for cancellation
+- **[Mandatory]** Never close a channel that might still receive sends
+- **[Recommended]** Document channel ownership and closing responsibility
+
+**Example:**
+```go
+// ✅ Good: Proper channel usage with context
+func worker(ctx context.Context, jobs <-chan Job, results chan<- Result) {
+    for {
+        select {
+        case <-ctx.Done():
+            return
+        case job, ok := <-jobs:
+            if !ok {
+                return  // Channel closed
+            }
+            result := process(job)
+            select {
+            case results <- result:
+            case <-ctx.Done():
+                return
+            }
+        }
+    }
+}
+
+// ❌ Bad: No context cancellation, potential goroutine leak
+func worker(jobs <-chan Job, results chan<- Result) {
+    for job := range jobs {
+        results <- process(job)  // Blocks if results channel is full
+    }
+}
+```
+
+### 3. Context Usage
+- **[Mandatory]** Pass `context.Context` as the first parameter to functions
+- **[Mandatory]** Use `context.WithTimeout` or `context.WithDeadline` for operations with time limits
+- **[Mandatory]** Use `context.WithCancel` for cancellable operations
+- **[Mandatory]** Check `ctx.Done()` in long-running loops
+- **[Recommended]** Use `context.WithValue` sparingly and only for request-scoped data
+- **[Mandatory]** Never store context in a struct; pass it explicitly
+
+**Example:**
+```go
+// ✅ Good: Proper context usage
+func FetchData(ctx context.Context, userID string) (*Data, error) {
+    ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+    defer cancel()
+
+    // Check context before expensive operation
+    select {
+    case <-ctx.Done():
+        return nil, ctx.Err()
+    default:
+    }
+
+    // Perform operation
+    return fetchFromDB(ctx, userID)
+}
+
+// ❌ Bad: No context usage
+func FetchData(userID string) (*Data, error) {
+    return fetchFromDB(userID)  // No timeout, no cancellation
+}
+```
+
+## Thread Safety
+
+### 1. Mutex Best Practices
+- **[Mandatory]** Always defer mutex unlocks immediately after locking
+- **[Mandatory]** Keep critical sections as short as possible
+- **[Mandatory]** Use `sync.RWMutex` for read-heavy scenarios
+- **[Mandatory]** Never copy mutex values (pass pointers to structs containing mutexes)
+- **[Recommended]** Document which data is protected by which mutex
+- **[Mandatory]** Avoid holding multiple locks (can cause deadlocks)
+
+**Example:**
+```go
+type Cache struct {
+    mu    sync.RWMutex
+    items map[string]string
+}
+
+// ✅ Good: Proper mutex usage
+func (c *Cache) Get(key string) (string, bool) {
+    c.mu.RLock()
+    defer c.mu.RUnlock()
+    val, ok := c.items[key]
+    return val, ok
+}
+
+func (c *Cache) Set(key, value string) {
+    c.mu.Lock()
+    defer c.mu.Unlock()
+    c.items[key] = value
+}
+
+// ❌ Bad: Forgot to unlock
+func (c *Cache) Get(key string) (string, bool) {
+    c.mu.RLock()
+    val, ok := c.items[key]
+    // Missing unlock - deadlock risk!
+    return val, ok
+}
+```
+
+### 2. Atomic Operations
+- **[Recommended]** Use `sync/atomic` for simple counter operations
+- **[Mandatory]** Use atomic operations for lock-free data structures carefully
+- **[Recommended]** Prefer mutexes for complex operations (easier to reason about)
+
+**Example:**
+```go
+// ✅ Good: Atomic counter
+type Counter struct {
+    value atomic.Int64
+}
+
+func (c *Counter) Increment() {
+    c.value.Add(1)
+}
+
+func (c *Counter) Value() int64 {
+    return c.value.Load()
+}
+```
+
+### 3. sync.Map
+- **[Recommended]** Use `sync.Map` for concurrent map access with specific patterns:
+  - Entry is only written once but read many times
+  - Multiple goroutines read, write, and overwrite disjoint key sets
+- **[Mandatory]** For other patterns, use regular map with `sync.RWMutex`
+
+### 4. sync.Once
+- **[Recommended]** Use `sync.Once` for one-time initialization
+- Common pattern for lazy initialization and singletons
+
+**Example:**
+```go
+var (
+    instance *Service
+    once     sync.Once
+)
+
+func GetService() *Service {
+    once.Do(func() {
+        instance = &Service{
+            // Initialize
+        }
+    })
+    return instance
+}
+```
+
+## Worker Pools
+
+### Pattern for Worker Pools
+- **[Recommended]** Use worker pools to limit concurrency
+- **[Mandatory]** Provide graceful shutdown mechanism
+- **[Mandatory]** Handle errors from workers appropriately
+
+**Example:**
+```go
+// ✅ Good: Worker pool pattern
+func ProcessWithWorkers(ctx context.Context, items []Item, numWorkers int) error {
+    jobs := make(chan Item, len(items))
+    results := make(chan error, len(items))
+
+    // Start workers
+    var wg sync.WaitGroup
+    for i := 0; i < numWorkers; i++ {
+        wg.Add(1)
+        go func() {
+            defer wg.Done()
+            for {
+                select {
+                case <-ctx.Done():
+                    return
+                case item, ok := <-jobs:
+                    if !ok {
+                        return
+                    }
+                    if err := processItem(ctx, item); err != nil {
+                        results <- err
+                    }
+                }
+            }
+        }()
+    }
+
+    // Send jobs
+    for _, item := range items {
+        select {
+        case jobs <- item:
+        case <-ctx.Done():
+            close(jobs)
+            return ctx.Err()
+        }
+    }
+    close(jobs)
+
+    // Wait for completion
+    wg.Wait()
+    close(results)
+
+    // Check for errors
+    for err := range results {
+        if err != nil {
+            return err
+        }
+    }
+    return nil
+}
+```
+
+## Common Concurrency Pitfalls
+
+### 1. Closure in Goroutines
+- **[Mandatory]** Always pass loop variables to goroutines as parameters
+
+**Example:**
+```go
+// ✅ Good: Pass variable as parameter
+for _, item := range items {
+    go func(item Item) {
+        process(item)
+    }(item)
+}
+
+// ❌ Bad: Closure captures loop variable
+for _, item := range items {
+    go func() {
+        process(item)  // All goroutines see the same (last) item
+    }()
+}
+```
+
+### 2. Race Conditions
+- **[Mandatory]** Run tests with `-race` flag to detect data races
+- **[Mandatory]** Fix all race conditions before production
+- Use `go test -race ./...` regularly
+
+### 3. Deadlocks
+- **[Mandatory]** Avoid circular lock dependencies
+- **[Mandatory]** Always acquire locks in the same order
+- **[Recommended]** Use timeouts to detect potential deadlocks
+
+## Performance Considerations
+
+### Goroutine Overhead
+- Each goroutine has a small memory footprint (~2KB stack)
+- **[Recommended]** Limit goroutine creation for high-volume operations
+- Use worker pools for bounded concurrency
+
+### Channel Overhead
+- **[Recommended]** Use buffered channels to reduce goroutine blocking
+- **[Mandatory]** Size buffers appropriately (too large wastes memory)
+- **[Recommended]** Profile channel operations under load

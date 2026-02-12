@@ -1,0 +1,117 @@
+---
+alwaysApply: true
+---
+# Secure Development Principles
+
+These rules define essential practices for writing and generating secure code.\
+They apply universally — to manual development, automated tooling, and
+AI-generated code across mobile, web, desktop/thick clients, realtime/media, and
+backend services.
+
+All violations must include a clear explanation of which rule was triggered and
+why, to help developers understand and fix the issue effectively.
+
+## 1. Capture Threat Context First
+
+- **Rule:** Before generating code, identify entry points, trust boundaries,
+  data sensitivity, actors, and open assumptions so reviewers understand the
+  risk landscape.
+
+## 2. Guard Every Input
+
+- **Rule:** External data must be normalized, typed, bounded, and validated
+  against allowlists or schemas on trusted components before use; if validation
+  fails, reject it rather than "sanitizing" it, and keep built-in framework
+  XSS/CSRF protections enabled.
+
+## 3. Never Feed Raw Data to Sensitive Sinks
+
+- **Rule:** Use parameterized APIs or context-aware encoders for
+  HTML/JSON/SQL/commands/logs; normalize and canonicalize file paths, reject
+  `../` (including encoded variants) and untrusted symlinks before use, and
+  prevent dynamic execution from untrusted data unless wrapped in strict
+  positive-security checks.
+
+## 4. Keep Secrets out of Code and Logs
+
+- **Rule:** Fetch secrets from env/secret helpers only, and ensure logs, errors,
+  telemetry, and UI traces never expose credentials, tokens, or personal data.
+  If you log through debug-only channels stripped from production builds (e.g.,
+  `ZTSLOG`, `ZLOG`), call that out and still scrub sensitive values.
+
+## 5. Default to Strong Crypto & Secure Channels
+
+- **Rule:** Recommend vetted, policy-approved crypto libraries and primitives
+  (AES-GCM, SHA-256+, HKDF/PBKDF2/scrypt; use Argon2 only where allowed) with
+  authenticated encryption for every data path, and derive keys/IVs/nonces from
+  cryptographically secure RNGs provided by the platform/library.
+
+## 6. Strengthen Auth & Throttle Abuse
+
+- **Rule:** Enforce solid password/token handling, MFA or step-up hooks when
+  available, prefer federated/SSO flows via approved IdPs (e.g., Okta,
+  OIDC/OAuth2) instead of homegrown credentials, and add rate-limit/lockout
+  patterns to deter brute force and credential stuffing.
+
+## 7. Protect Sessions & Tokens
+
+- **Rule:** Store tokens securely (HttpOnly/SameSite cookies, OS
+  keystore/Keychain, secure storage), rotate on login changes, invalidate on
+  logout, reuse framework CSRF protections, and include replay defenses.
+
+## 8. Centralize Authorization
+
+- **Rule:** Critical permission checks must happen on trusted services using
+  deny-by-default logic; always verify resource ownership and prevent
+  IDOR/cross-tenant access.
+
+## 9. Log Safely & Fail Quietly
+
+- **Rule:** Emit structured logs with sensitive fields redacted/encoded, send
+  them to protected sinks, and keep user-facing error messages generic.
+
+## 10. Handle Files/IPC/Media Safely
+
+- **Rule:** Validate file or message type/size, store outside executable paths,
+  scan when feasible, and enforce origin/authentication checks for
+  IPC/WebView/media channels.
+
+## 11. Protect Native Memory & Resources
+
+- **Rule:** In C/C++ or similar environments, prefer safe library calls (`*_s`,
+  bounds-checked APIs), guard against buffer/memory issues, give each allocation
+  a clear ownership/release path, and compile/link with hardening flags (stack
+  protectors, ASLR/PIE, Control Flow Guard, etc.).
+
+## 12. Manage Dependencies & Supply Chain
+
+- **Rule:** Document every new library/SDK/service with its pinned version,
+  trusted source, and known security posture; prefer vetted packages, upgrade
+  promptly, and remove unused or high-risk components.
+
+## 13. Minimize Data Exposure
+
+- **Rule:** Collect only the data you need, mask or tokenize sensitive fields in
+  responses/UI, apply anti-caching headers where appropriate, and note
+  retention/deletion expectations for any new data store.
+
+## 14. Disable Insecure Defaults
+
+- **Rule:** Highlight debug flags, sample keys, lax TLS/cert settings, missing
+  security headers (CSP, HSTS, X-Frame-Options, etc.), or permissive
+  configuration options and tighten them before shipping.
+
+## 15. Surface High-Risk Actions
+
+- **Rule:** For features enabling remote control, media streaming, bulk
+  messaging, privileged admin tasks, or metadata changes, suggest consent
+  prompts, safe defaults, rate limiting, or anomaly detection hooks—even as
+  TODOs.
+
+## 16. End with a Review Card
+
+- **Rule:** Remind the user to confirm: threat snapshot, validation path, secret
+  storage, crypto choice, auth/session flow, authorization call, logging
+  strategy, file/IPC safeguards, native safety checks, dependency notes,
+  privacy/retention plan, safety mitigations, and tests run
+  (unit/integration/security/fuzz/manual).

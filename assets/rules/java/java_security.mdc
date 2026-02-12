@@ -1,0 +1,46 @@
+---
+description: Security best practices
+globs: "*.java"
+alwaysApply: false
+---
+
+## Security Management
+
+### 1. Sensitive Data Handling
+- **NEVER** log secret values, passwords, or tokens
+- **NEVER** include credentials in error messages
+- Use appropriate crypto utility for hashing (e.g., `util.Crypto`)
+- Encrypt sensitive data before storing in database/cache
+- Sanitize user inputs to prevent injection attacks
+
+### 2. AWS Integration
+- Use IAM roles instead of hardcoded credentials
+- Implement retry logic with exponential backoff for AWS calls
+- Handle AWS exceptions gracefully (throttling, access denied)
+- Use resource tags for tracking and auditing
+
+### 3. Authentication & Authorization
+- **[Mandatory]** Verify user permissions at controller level by configuration and annotation `@PreAuthorize("policy(#resource, #action)")`
+- **[Mandatory]** Use Spring Security for authentication
+- **[Mandatory]** Implement data-level authorization checks
+- **[Mandatory]** Validate JWT tokens properly
+- **[Mandatory]** User-owned pages or functions must be authorized
+- **[Mandatory]** Prevent access and manipulation of other people's data without authorization check
+
+### 4. Input Validation and Sanitization
+- **[Mandatory]** Any parameters input by users must go through validation check
+  - Prevent memory leak from excessive page size
+  - Prevent slow database query from malicious `ORDER BY`
+  - Prevent arbitrary redirection
+  - Prevent SQL injection (always use `#{param}` in MyBatis - see **java_database.mdc**)
+  - Prevent deserialize injection
+  - Prevent ReDoS (Regular Expression Denial of Service)
+- **[Mandatory]** Validate regular expressions - some patterns can cause ReDoS attacks
+- **[Mandatory]** It is forbidden to output user data to HTML page without security filtering or proper escaping
+- **[Mandatory]** Form and AJAX submission must be filtered by CSRF security check
+
+### 5. Data Protection
+- **[Mandatory]** Direct display of user sensitive data is not allowed - data must be desensitized
+  - Example: Phone number `13812349119` should display as `138****9119`
+- **[Mandatory]** Never log sensitive data (secrets, passwords, tokens, PII)
+- **[Mandatory]** Never include sensitive data in exception messages

@@ -1,0 +1,45 @@
+---
+description: Java code convention and best practice - Main index
+globs: "*.java"
+alwaysApply: false
+---
+
+# Java Code Conventions and Best Practices
+
+This is the main index for Java coding standards in this project. 
+For detailed rules, see the domain-specific rule files below.
+
+## Rule Files
+
+- **[Naming Conventions](.cursor/rules/java_naming.mdc)** - Code style, naming rules
+- **[Spring Boot](.cursor/rules/java_spring_boot.mdc)** - Spring Boot best practices
+- **[Security](.cursor/rules/java_security.mdc)** - Security management
+- **[Database](.cursor/rules/java_database.mdc)** - MyBatis, entities, transactions
+- **[Concurrency](.cursor/rules/java_concurrency.mdc)** - Async processing, thread safety
+- **[Integration](.cursor/rules/java_integration.mdc)** - Elasticsearch, external services
+- **[API Design](.cursor/rules/java_api.mdc)** - REST API patterns
+- **[Common Pitfalls](.cursor/rules/java_common_pitfalls.mdc)** - Pitfalls and review checklist
+
+
+## Quick Navigation by Topic
+
+Find specific guidance quickly:
+
+- **Lombok rules** → [java_database.mdc - Lombok Annotation Best Practices](#)
+- **SQL/MyBatis & injection prevention** → [java_database.mdc - MyBatis Usage](#)
+- **Exception handling** → [java_spring_boot.mdc - Error Handling](#)
+- **Sensitive data & security** → [java_security.mdc - Sensitive Data Handling](#)
+- **Logging standards** → [java_spring_boot.mdc - Logging Standards](#)
+- **ServiceInvoker pattern** → [project.mdc - Integration Patterns](#)
+- **Thread safety** → [java_concurrency.mdc - Thread Safety](#)
+- **Testing patterns** → [java_testing.mdc - Unit Tests](#)
+- **Configuration management** → [java_spring_boot.mdc - Configuration Management](#)
+- **Transaction management** → [java_database.mdc - Transaction Management](#)
+
+## Quick Reference
+
+All rule files apply to `*.java` files except `java_maven.mdc` which applies to `pom.xml`.
+Each file is self-contained and can be used independently.
+
+**Last Updated:** 2025-11-11
+**Maintained By:** Development Team

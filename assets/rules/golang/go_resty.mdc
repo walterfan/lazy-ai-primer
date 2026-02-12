@@ -1,0 +1,513 @@
+---
+description: Go-Resty HTTP client best practices and common pitfalls
+globs: ["*.go"]
+alwaysApply: false
+---
+
+# Go-Resty Best Practices
+
+This rule covers common mistakes and best practices for using the `go-resty/resty` HTTP client library.
+
+## Core Principles
+
+1. **Treat `resty.Client` as a long-lived object** - like `http.Client`
+2. **Always set timeouts** - no timeout = distributed deadlock
+3. **Always propagate context** - enables cancellation and tracing
+4. **Check response status** - non-2xx is not an error by default
+5. **Retry only idempotent operations** - avoid duplicate side effects
+
+---
+
+## 1. Client Lifecycle - One Client Per Service
+
+### BAD: Creating a new client per request
+
+```go
+// DON'T DO THIS - loses connection pooling, TLS session reuse
+func callAPI() error {
+    client := resty.New()  // New client every call!
+    _, err := client.R().Get(url)
+    return err
+}
+```
+
+**Problems:**
+- Loses connection pooling
+- Loses TLS session reuse
+- Breaks observability consistency
+- Makes tuning impossible
+
+### GOOD: Reuse client instance
+
+```go
+// Create one client per target service (or per config profile)
+var apiClient = resty.New()
+
+func init() {
+    apiClient.
+        SetBaseURL("https://api.example.com").
+        SetTimeout(3 * time.Second).
+        SetRetryCount(2)
+}
+
+func callAPI(ctx context.Context) error {
+    _, err := apiClient.R().
+        SetContext(ctx).
+        Get("/endpoint")
+    return err
+}
+```
+
+**Rule:** `resty.Client` ≈ `http.Client` ≈ **long-lived object**
+
+---
+
+## 2. Always Set Timeouts
+
+### BAD: No timeout (production killer)
+
+```go
+// DON'T DO THIS - default timeout = infinite
+client := resty.New()
+```
+
+**What happens in production:**
+- Goroutines pile up waiting forever
+- File descriptors exhausted
+- Downstream incident becomes YOUR incident
+
+### GOOD: Explicit timeouts
+
+```go
+client := resty.New()
+client.SetTimeout(3 * time.Second)
+
+// For advanced retry configuration:
+client.
+    SetRetryCount(2).
+    SetRetryWaitTime(200 * time.Millisecond).
+    SetRetryMaxWaitTime(1 * time.Second)
+```
+
+**Rule:** No timeout = distributed deadlock
+
+---
+
+## 3. Retry Only Idempotent Requests
+
+### BAD: Blind retries on non-idempotent requests
+
+```go
+// DON'T DO THIS - can create duplicate orders!
+client.
+    SetRetryCount(3).
+    R().
+    Post("/order")
+```
+
+**Consequences:**
+- Duplicate orders
+- Duplicate payments
+- "Why do we have 3 records?"
+
+### GOOD: Conditional retries
+
+```go
+// Option 1: Add retry condition for server errors only
+client.
+    SetRetryCount(3).
+    AddRetryCondition(func(r *resty.Response, err error) bool {
+        // Only retry on server errors, not client errors
+        return err != nil || (r != nil && r.StatusCode() >= 500)
+    })
+
+// Option 2: Separate clients for different operations
+var queryClient = resty.New()   // For GET, HEAD - safe to retry
+var commandClient = resty.New() // For POST, PUT - no retries
+
+func init() {
+    queryClient.SetRetryCount(3)
+    commandClient.SetRetryCount(0) // No retries for mutations
+}
+```
+
+**Rule:** Retry only idempotent methods (GET, HEAD, PUT with idempotency key)
+
+---
+
+## 4. Always Propagate Context
+
+### BAD: No context
+
+```go
+// DON'T DO THIS - no cancellation, no deadline, breaks tracing
+client.R().Get(url)
+```
+
+**Problems:**
+- No request cancellation when caller cancels
+- No deadline propagation
+- Breaks distributed tracing (OpenTelemetry, Jaeger)
+
+### GOOD: Always pass context
+
+```go
+func fetchData(ctx context.Context) (*Data, error) {
+    // Context with timeout
+    ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+    defer cancel()
+
+    var result Data
+    resp, err := client.R().
+        SetContext(ctx).  // ALWAYS set context
+        SetResult(&result).
+        Get("/data")
+    
+    if err != nil {
+        return nil, err
+    }
+    return &result, nil
+}
+```
+
+**Rule:** Context propagation is **mandatory** in services
+
+---
+
+## 5. Correct SetResult Usage
+
+### BAD: Pointer to pointer (silent decode failure)
+
+```go
+// DON'T DO THIS - JSON decode silently fails
+var resp *MyResponse
+client.R().
+    SetResult(&resp).  // ❌ pointer to pointer (**MyResponse)
+    Get(url)
+// resp fields stay zero, no error raised!
+```
+
+### GOOD: Pointer to struct
+
+```go
+var resp MyResponse
+_, err := client.R().
+    SetResult(&resp).  // ✅ pointer to struct (*MyResponse)
+    Get(url)
+```
+
+**Rule:** `SetResult` wants `*Struct`, not `**Struct`
+
+---
+
+## 6. Check Non-2xx Responses
+
+### BAD: Ignoring response status
+
+```go
+// DON'T DO THIS - 401/403/500 treated as "success"
+resp, _ := client.R().Get(url)
+// assumes success, processes bad data
+```
+
+### GOOD: Check response status
+
+```go
+resp, err := client.R().
+    SetContext(ctx).
+    Get(url)
+
+if err != nil {
+    return fmt.Errorf("request failed: %w", err)
+}
+
+if resp.IsError() {  // Checks for 4xx and 5xx
+    return fmt.Errorf("API error: status=%d body=%s", 
+        resp.StatusCode(), resp.String())
+}
+
+// Now safe to process response
+```
+
+**Better:** Use typed error responses
+
+```go
+type APIError struct {
+    Code    string `json:"code"`
+    Message string `json:"message"`
+}
+
+client.SetError(&APIError{})
+
+// Then in your call:
+resp, err := client.R().Get(url)
+if resp.IsError() {
+    apiErr := resp.Error().(*APIError)
+    return fmt.Errorf("API error: %s - %s", apiErr.Code, apiErr.Message)
+}
+```
+
+---
+
+## 7. Use Hooks Only for Cross-Cutting Concerns
+
+### BAD: Business logic in hooks
+
+```go
+// DON'T DO THIS - hard to reason about, hidden side effects
+client.OnBeforeRequest(func(c *resty.Client, r *resty.Request) error {
+    r.SetBody(expensiveBusinessLogic())  // ❌ Business logic hidden in hook
+    return nil
+})
+```
+
+### GOOD: Hooks for infrastructure concerns only
+
+```go
+// Auth headers
+client.OnBeforeRequest(func(c *resty.Client, r *resty.Request) error {
+    token, err := getAuthToken()
+    if err != nil {
+        return err
+    }
+    r.SetHeader("Authorization", "Bearer "+token)
+    return nil
+})
+
+// Trace IDs
+client.OnBeforeRequest(func(c *resty.Client, r *resty.Request) error {
+    if traceID := r.Context().Value("traceID"); traceID != nil {
+        r.SetHeader("X-Trace-ID", traceID.(string))
+    }
+    return nil
+})
+
+// Metrics/logging
+client.OnAfterResponse(func(c *resty.Client, r *resty.Response) error {
+    metrics.RecordHTTPRequest(r.Request.Method, r.StatusCode(), r.Time())
+    return nil
+})
+```
+
+**Rule:** Hooks are for auth, tracing, metrics - not business logic
+
+---
+
+## 8. Avoid Debug Mode in Production
+
+### BAD: Debug enabled in production
+
+```go
+// DON'T DO THIS in production
+client.SetDebug(true)
+```
+
+**Consequences:**
+- PII leaks in logs
+- Huge log volume
+- Performance degradation
+
+### GOOD: Conditional debug or selective logging
+
+```go
+// Option 1: Environment-based debug
+if os.Getenv("DEBUG") == "true" {
+    client.SetDebug(true)
+}
+
+// Option 2: Selective error logging (production-safe)
+client.OnAfterResponse(func(c *resty.Client, r *resty.Response) error {
+    if r.StatusCode() >= 500 {
+        log.Warn("API server error",
+            "url", r.Request.URL,
+            "status", r.StatusCode(),
+            "duration", r.Time(),
+        )
+    }
+    return nil
+})
+```
+
+**Rule:** Never log full request/response bodies in production
+
+---
+
+## 9. Tune HTTP Transport for Concurrency
+
+### BAD: Trusting defaults under high load
+
+```go
+// Default transport may not handle high concurrency well
+client := resty.New()
+```
+
+### GOOD: Custom transport for production
+
+```go
+transport := &http.Transport{
+    MaxIdleConns:        100,
+    MaxIdleConnsPerHost: 20,
+    MaxConnsPerHost:     100,
+    IdleConnTimeout:     90 * time.Second,
+    TLSHandshakeTimeout: 10 * time.Second,
+    DisableKeepAlives:   false,
+}
+
+client := resty.New()
+client.SetTransport(transport)
+```
+
+**Rule:** Tune transport settings for your concurrency requirements
+
+---
+
+## 10. Wrap Resty, Don't Leak It
+
+### BAD: Exposing Resty throughout codebase
+
+```go
+// DON'T DO THIS - Resty details leak everywhere
+func GetUser(client *resty.Client, id string) (*User, error) {
+    // Implementation details leak
+}
+```
+
+### GOOD: Encapsulate in API client
+
+```go
+// api/user_client.go
+type UserAPI struct {
+    client  *resty.Client
+    baseURL string
+}
+
+func NewUserAPI(baseURL string, timeout time.Duration) *UserAPI {
+    client := resty.New()
+    client.
+        SetBaseURL(baseURL).
+        SetTimeout(timeout).
+        SetRetryCount(2).
+        AddRetryCondition(func(r *resty.Response, err error) bool {
+            return err != nil || (r != nil && r.StatusCode() >= 500)
+        })
+    
+    return &UserAPI{client: client, baseURL: baseURL}
+}
+
+func (api *UserAPI) GetUser(ctx context.Context, id string) (*User, error) {
+    var user User
+    resp, err := api.client.R().
+        SetContext(ctx).
+        SetResult(&user).
+        SetPathParam("id", id).
+        Get("/users/{id}")
+    
+    if err != nil {
+        return nil, fmt.Errorf("get user request failed: %w", err)
+    }
+    if resp.IsError() {
+        return nil, fmt.Errorf("get user failed: status=%d", resp.StatusCode())
+    }
+    return &user, nil
+}
+```
+
+**Architecture:**
+```
+[ Your Service ]
+       ↓
+[ API Client (Resty wrapper) ]  ← Encapsulation layer
+       ↓
+[ HTTP Transport ]
+```
+
+---
+
+## Quick Reference Checklist
+
+| Topic            | Rule                                    |
+|------------------|----------------------------------------|
+| Client lifecycle | One client per service, long-lived     |
+| Timeout          | Always set explicitly                  |
+| Retries          | Only idempotent operations             |
+| Context          | Always propagate                       |
+| Result decode    | `*Struct`, not `**Struct`              |
+| Error handling   | Check `IsError()` for non-2xx          |
+| Hooks            | Only cross-cutting concerns            |
+| Debug/Logging    | Never full body in production          |
+| Transport        | Tune for concurrency                   |
+| Design           | Wrap Resty, don't leak implementation  |
+
+---
+
+## Example: Production-Ready Client Setup
+
+```go
+package httpclient
+
+import (
+    "context"
+    "net/http"
+    "time"
+
+    "github.com/go-resty/resty/v2"
+)
+
+// NewProductionClient creates a production-ready Resty client
+func NewProductionClient(baseURL string, opts ...Option) *resty.Client {
+    // Custom transport for high concurrency
+    transport := &http.Transport{
+        MaxIdleConns:        100,
+        MaxIdleConnsPerHost: 20,
+        MaxConnsPerHost:     100,
+        IdleConnTimeout:     90 * time.Second,
+    }
+
+    client := resty.New()
+    client.
+        SetBaseURL(baseURL).
+        SetTimeout(5 * time.Second).
+        SetTransport(transport).
+        SetRetryCount(2).
+        SetRetryWaitTime(100 * time.Millisecond).
+        SetRetryMaxWaitTime(2 * time.Second).
+        AddRetryCondition(func(r *resty.Response, err error) bool {
+            // Retry on network errors or 5xx
+            return err != nil || (r != nil && r.StatusCode() >= 500)
+        })
+
+    // Add tracing header
+    client.OnBeforeRequest(func(c *resty.Client, r *resty.Request) error {
+        if r.Context() != nil {
+            if traceID := r.Context().Value("traceID"); traceID != nil {
+                r.SetHeader("X-Trace-ID", traceID.(string))
+            }
+        }
+        return nil
+    })
+
+    // Apply custom options
+    for _, opt := range opts {
+        opt(client)
+    }
+
+    return client
+}
+
+type Option func(*resty.Client)
+
+func WithTimeout(d time.Duration) Option {
+    return func(c *resty.Client) {
+        c.SetTimeout(d)
+    }
+}
+
+func WithAuthToken(tokenFunc func() string) Option {
+    return func(c *resty.Client) {
+        c.OnBeforeRequest(func(c *resty.Client, r *resty.Request) error {
+            r.SetHeader("Authorization", "Bearer "+tokenFunc())
+            return nil
+        })
+    }
+}
+```

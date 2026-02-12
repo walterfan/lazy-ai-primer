@@ -1,0 +1,410 @@
+---
+description: Go web framework best practices (Gin, Echo)
+globs: "*.go"
+alwaysApply: false
+---
+
+## Web Framework Best Practices
+
+### 1. Router Configuration
+- Group related routes
+- Use middleware at appropriate levels
+- Configure timeouts and limits
+- Enable graceful shutdown
+
+**Example:**
+```go
+// ✅ Good: Well-organized router
+func SetupRouter(cfg *Config) *gin.Engine {
+    r := gin.New()
+
+    // Global middleware
+    r.Use(gin.Recovery())
+    r.Use(LoggingMiddleware())
+    r.Use(CORSMiddleware())
+
+    // Public routes
+    public := r.Group("/api/v1")
+    {
+        public.POST("/login", loginHandler)
+        public.POST("/register", registerHandler)
+    }
+
+    // Protected routes
+    protected := r.Group("/api/v1")
+    protected.Use(AuthMiddleware(cfg.JWTSecret))
+    {
+        protected.GET("/users/:id", getUserHandler)
+        protected.PUT("/users/:id", updateUserHandler)
+    }
+
+    return r
+}
+```
+
+### 2. Configuration Management
+- Use environment variables for configuration
+- Provide default values
+- Validate configuration on startup
+- **[Recommended]** Use viper or similar library for config management
+
+**Example:**
+```go
+// ✅ Good: Structured configuration
+type Config struct {
+    ServerPort   string        `env:"SERVER_PORT" envDefault:"8080"`
+    DBHost       string        `env:"DB_HOST" envDefault:"localhost"`
+    DBPort       int           `env:"DB_PORT" envDefault:"3306"`
+    JWTSecret    string        `env:"JWT_SECRET,required"`
+    LogLevel     string        `env:"LOG_LEVEL" envDefault:"info"`
+    ReadTimeout  time.Duration `env:"READ_TIMEOUT" envDefault:"10s"`
+    WriteTimeout time.Duration `env:"WRITE_TIMEOUT" envDefault:"10s"`
+}
+
+func LoadConfig() (*Config, error) {
+    var cfg Config
+    if err := env.Parse(&cfg); err != nil {
+        return nil, fmt.Errorf("failed to parse config: %w", err)
+    }
+
+    // Validate
+    if cfg.JWTSecret == "" {
+        return nil, errors.New("JWT_SECRET is required")
+    }
+
+    return &cfg, nil
+}
+```
+
+### 3. Logging Standards
+- Use structured logging (logrus, zap)
+- Include request ID in logs
+- Log at appropriate levels
+- Never log sensitive data
+
+**Logging Levels:**
+- **ERROR**: System errors, exceptions
+- **WARN**: Potential issues, deprecated usage
+- **INFO**: Important business events, request logs
+- **DEBUG**: Detailed flow, debugging info
+
+**Example:**
+```go
+// ✅ Good: Structured logging with context
+import "github.com/sirupsen/logrus"
+
+func (h *UserHandler) GetUser(c *gin.Context) {
+    requestID := c.GetString("request_id")
+    userID := c.Param("id")
+
+    log.WithFields(logrus.Fields{
+        "request_id": requestID,
+        "user_id":    userID,
+        "method":     c.Request.Method,
+        "path":       c.Request.URL.Path,
+    }).Info("fetching user")
+
+    user, err := h.service.GetByID(c.Request.Context(), userID)
+    if err != nil {
+        log.WithFields(logrus.Fields{
+            "request_id": requestID,
+            "user_id":    userID,
+            "error":      err.Error(),
+        }).Error("failed to get user")
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+        return
+    }
+
+    c.JSON(http.StatusOK, user)
+}
+
+// ❌ Bad: Unstructured logging, logs sensitive data
+func (h *UserHandler) GetUser(c *gin.Context) {
+    log.Printf("Getting user with password: %s", c.GetString("password"))  // Never log passwords!
+    // ...
+}
+```
+
+### 4. Error Handling
+- **[Mandatory]** Return consistent error responses
+- **[Mandatory]** Map errors to appropriate HTTP status codes
+- **[Mandatory]** Log errors with context
+- **[Recommended]** Use custom error types
+
+**Example:**
+```go
+// ✅ Good: Consistent error handling
+type ErrorResponse struct {
+    Error   string                 `json:"error"`
+    Code    string                 `json:"code,omitempty"`
+    Details map[string]interface{} `json:"details,omitempty"`
+}
+
+// Custom errors
+var (
+    ErrNotFound     = errors.New("resource not found")
+    ErrUnauthorized = errors.New("unauthorized")
+    ErrInvalidInput = errors.New("invalid input")
+)
+
+func HandleError(c *gin.Context, err error) {
+    requestID := c.GetString("request_id")
+
+    var statusCode int
+    var code string
+    var message string
+
+    switch {
+    case errors.Is(err, ErrNotFound):
+        statusCode = http.StatusNotFound
+        code = "NOT_FOUND"
+        message = "Resource not found"
+    case errors.Is(err, ErrUnauthorized):
+        statusCode = http.StatusUnauthorized
+        code = "UNAUTHORIZED"
+        message = "Unauthorized access"
+    case errors.Is(err, ErrInvalidInput):
+        statusCode = http.StatusBadRequest
+        code = "INVALID_INPUT"
+        message = err.Error()
+    default:
+        statusCode = http.StatusInternalServerError
+        code = "INTERNAL_ERROR"
+        message = "Internal server error"
+        log.WithFields(logrus.Fields{
+            "request_id": requestID,
+            "error":      err.Error(),
+        }).Error("unexpected error")
+    }
+
+    c.JSON(statusCode, ErrorResponse{
+        Error: message,
+        Code:  code,
+    })
+}
+```
+
+### 5. Validation
+- **[Mandatory]** Validate all inputs at handler level
+- **[Recommended]** Use validator library (go-playground/validator)
+- **[Mandatory]** Return meaningful validation errors
+
+**Example:**
+```go
+import "github.com/go-playground/validator/v10"
+
+type CreateUserRequest struct {
+    Email     string `json:"email" binding:"required,email" validate:"required,email"`
+    Username  string `json:"username" binding:"required,min=3,max=50" validate:"required,min=3,max=50"`
+    Password  string `json:"password" binding:"required,min=8" validate:"required,min=8"`
+}
+
+func (h *UserHandler) CreateUser(c *gin.Context) {
+    var req CreateUserRequest
+
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, ErrorResponse{
+            Error: "Invalid request body",
+        })
+        return
+    }
+
+    if err := h.validator.Struct(req); err != nil {
+        validationErrors := err.(validator.ValidationErrors)
+        c.JSON(http.StatusBadRequest, ErrorResponse{
+            Error:   "Validation failed",
+            Details: formatValidationErrors(validationErrors),
+        })
+        return
+    }
+
+    // Process valid request
+}
+```
+
+### 6. Middleware Best Practices
+- **[Mandatory]** Order middleware appropriately
+- **[Mandatory]** Call `c.Next()` to continue chain
+- **[Recommended]** Use `c.Abort()` to stop processing
+
+**Common middleware order:**
+1. Recovery (panic recovery)
+2. CORS
+3. Request ID
+4. Logging
+5. Authentication
+6. Authorization
+7. Rate limiting
+
+**Example:**
+```go
+// ✅ Good: Proper middleware implementation
+func RequestIDMiddleware() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        requestID := c.GetHeader("X-Request-ID")
+        if requestID == "" {
+            requestID = uuid.New().String()
+        }
+        c.Set("request_id", requestID)
+        c.Header("X-Request-ID", requestID)
+        c.Next()
+    }
+}
+
+func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
+    return func(c *gin.Context) {
+        token := c.GetHeader("Authorization")
+        if token == "" {
+            c.AbortWithStatusJSON(http.StatusUnauthorized, ErrorResponse{
+                Error: "Missing authorization header",
+            })
+            return
+        }
+
+        claims, err := validateJWT(token, jwtSecret)
+        if err != nil {
+            c.AbortWithStatusJSON(http.StatusUnauthorized, ErrorResponse{
+                Error: "Invalid token",
+            })
+            return
+        }
+
+        c.Set("user_id", claims.UserID)
+        c.Next()
+    }
+}
+```
+
+### 7. Graceful Shutdown
+- **[Mandatory]** Implement graceful shutdown for production
+- **[Mandatory]** Set appropriate shutdown timeout
+- **[Recommended]** Close resources on shutdown
+
+**Example:**
+```go
+// ✅ Good: Graceful shutdown
+func main() {
+    router := SetupRouter()
+
+    srv := &http.Server{
+        Addr:         ":8080",
+        Handler:      router,
+        ReadTimeout:  10 * time.Second,
+        WriteTimeout: 10 * time.Second,
+        IdleTimeout:  60 * time.Second,
+    }
+
+    // Start server in goroutine
+    go func() {
+        if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+            log.Fatalf("Server failed: %v", err)
+        }
+    }()
+
+    // Wait for interrupt signal
+    quit := make(chan os.Signal, 1)
+    signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+    <-quit
+
+    log.Info("Shutting down server...")
+
+    // Graceful shutdown with timeout
+    ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+    defer cancel()
+
+    if err := srv.Shutdown(ctx); err != nil {
+        log.Errorf("Server forced to shutdown: %v", err)
+    }
+
+    log.Info("Server exited")
+}
+```
+
+### 8. CORS Configuration
+- **[Mandatory]** Configure CORS appropriately for production
+- **[Recommended]** Don't use `*` for allowed origins in production
+
+**Example:**
+```go
+// ✅ Good: Proper CORS configuration
+func CORSMiddleware() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        c.Header("Access-Control-Allow-Origin", "https://example.com")
+        c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+        c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type")
+        c.Header("Access-Control-Max-Age", "86400")
+
+        if c.Request.Method == "OPTIONS" {
+            c.AbortWithStatus(http.StatusNoContent)
+            return
+        }
+
+        c.Next()
+    }
+}
+```
+
+### 9. Rate Limiting
+- **[Recommended]** Implement rate limiting to prevent abuse
+- **[Recommended]** Use per-IP or per-user limits
+
+**Example:**
+```go
+import "golang.org/x/time/rate"
+
+// ✅ Good: Rate limiting middleware
+func RateLimitMiddleware(rps int, burst int) gin.HandlerFunc {
+    limiters := make(map[string]*rate.Limiter)
+    var mu sync.Mutex
+
+    return func(c *gin.Context) {
+        ip := c.ClientIP()
+
+        mu.Lock()
+        limiter, exists := limiters[ip]
+        if !exists {
+            limiter = rate.NewLimiter(rate.Limit(rps), burst)
+            limiters[ip] = limiter
+        }
+        mu.Unlock()
+
+        if !limiter.Allow() {
+            c.AbortWithStatusJSON(http.StatusTooManyRequests, ErrorResponse{
+                Error: "Rate limit exceeded",
+            })
+            return
+        }
+
+        c.Next()
+    }
+}
+```
+
+### 10. Health Checks
+- **[Mandatory]** Implement health check endpoint
+- **[Recommended]** Include readiness and liveness probes
+
+**Example:**
+```go
+// ✅ Good: Health check endpoints
+func (h *HealthHandler) Liveness(c *gin.Context) {
+    c.JSON(http.StatusOK, gin.H{
+        "status": "UP",
+    })
+}
+
+func (h *HealthHandler) Readiness(c *gin.Context) {
+    // Check dependencies
+    if err := h.db.Ping(); err != nil {
+        c.JSON(http.StatusServiceUnavailable, gin.H{
+            "status": "DOWN",
+            "error":  "database unavailable",
+        })
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "status": "UP",
+    })
+}
+```

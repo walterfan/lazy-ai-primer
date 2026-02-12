@@ -1,0 +1,429 @@
+---
+description: REST API design and documentation standards for Go
+globs: "*.go"
+alwaysApply: false
+---
+
+## API Design
+
+### 1. HTTP Handlers (Gin Framework)
+- Use appropriate HTTP methods (GET, POST, PUT, PATCH, DELETE)
+- Version APIs in route groups (`/api/v1/`)
+- Return standard response structures
+- Include Swagger/OpenAPI annotations for documentation
+- **[Mandatory]** Validate request input
+- **[Mandatory]** Handle errors appropriately
+
+**Example:**
+```go
+// ✅ Good: Proper handler with validation and error handling
+// @Summary Get user by ID
+// @Description Retrieves a user by their unique identifier
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param id path string true "User ID"
+// @Success 200 {object} UserResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Router /api/v1/users/{id} [get]
+func (h *UserHandler) GetUser(c *gin.Context) {
+    id := c.Param("id")
+    if id == "" {
+        c.JSON(http.StatusBadRequest, ErrorResponse{
+            Error: "user ID is required",
+        })
+        return
+    }
+
+    user, err := h.userService.GetByID(c.Request.Context(), id)
+    if err != nil {
+        if errors.Is(err, ErrNotFound) {
+            c.JSON(http.StatusNotFound, ErrorResponse{
+                Error: "user not found",
+            })
+            return
+        }
+        log.Errorf("failed to get user: %v", err)
+        c.JSON(http.StatusInternalServerError, ErrorResponse{
+            Error: "internal server error",
+        })
+        return
+    }
+
+    c.JSON(http.StatusOK, toUserResponse(user))
+}
+
+// ❌ Bad: No validation, poor error handling
+func (h *UserHandler) GetUser(c *gin.Context) {
+    id := c.Param("id")
+    user, _ := h.userService.GetByID(c.Request.Context(), id)
+    c.JSON(200, user)
+}
+```
+
+### 2. Request/Response Objects
+- Separate request/response DTOs from domain entities
+- Use struct tags for JSON binding and validation
+- Include meaningful field names and documentation
+- **[Mandatory]** Never expose internal IDs or sensitive data
+
+**Example:**
+```go
+// ✅ Good: Proper request/response structures
+type CreateUserRequest struct {
+    Email     string `json:"email" binding:"required,email" validate:"required,email"`
+    Username  string `json:"username" binding:"required,min=3,max=50" validate:"required,min=3,max=50"`
+    FirstName string `json:"first_name" binding:"required" validate:"required"`
+    LastName  string `json:"last_name" binding:"required" validate:"required"`
+}
+
+type UserResponse struct {
+    ID        string    `json:"id"`
+    Email     string    `json:"email"`
+    Username  string    `json:"username"`
+    FirstName string    `json:"first_name"`
+    LastName  string    `json:"last_name"`
+    CreatedAt time.Time `json:"created_at"`
+    UpdatedAt time.Time `json:"updated_at"`
+}
+
+type ErrorResponse struct {
+    Error   string                 `json:"error"`
+    Details map[string]interface{} `json:"details,omitempty"`
+}
+
+type ListResponse struct {
+    Data       []UserResponse `json:"data"`
+    Total      int64          `json:"total"`
+    Page       int            `json:"page"`
+    PageSize   int            `json:"page_size"`
+    TotalPages int            `json:"total_pages"`
+}
+```
+
+### 3. Middleware Pattern
+- **[Mandatory]** Use middleware for cross-cutting concerns
+- Common middleware: logging, authentication, CORS, rate limiting
+- **[Mandatory]** Order middleware appropriately (e.g., CORS before auth)
+
+**Example:**
+```go
+// ✅ Good: Structured middleware
+func LoggingMiddleware() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        start := time.Now()
+        path := c.Request.URL.Path
+
+        c.Next()
+
+        latency := time.Since(start)
+        statusCode := c.Writer.Status()
+
+        log.WithFields(log.Fields{
+            "path":        path,
+            "method":      c.Request.Method,
+            "status":      statusCode,
+            "latency":     latency,
+            "client_ip":   c.ClientIP(),
+            "request_id":  c.GetString("request_id"),
+        }).Info("HTTP request")
+    }
+}
+
+// Authentication middleware
+func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
+    return func(c *gin.Context) {
+        token := c.GetHeader("Authorization")
+        if token == "" {
+            c.AbortWithStatusJSON(http.StatusUnauthorized, ErrorResponse{
+                Error: "missing authorization header",
+            })
+            return
+        }
+
+        claims, err := validateJWT(token, jwtSecret)
+        if err != nil {
+            c.AbortWithStatusJSON(http.StatusUnauthorized, ErrorResponse{
+                Error: "invalid token",
+            })
+            return
+        }
+
+        c.Set("user_id", claims.UserID)
+        c.Next()
+    }
+}
+
+// Setup middleware order
+func SetupRouter() *gin.Engine {
+    r := gin.New()
+
+    // Global middleware (order matters)
+    r.Use(CORSMiddleware())
+    r.Use(RequestIDMiddleware())
+    r.Use(LoggingMiddleware())
+    r.Use(RecoveryMiddleware())
+
+    // Public routes
+    r.POST("/api/v1/auth/login", loginHandler)
+
+    // Protected routes
+    authorized := r.Group("/api/v1")
+    authorized.Use(AuthMiddleware(jwtSecret))
+    {
+        authorized.GET("/users/:id", getUserHandler)
+        authorized.PUT("/users/:id", updateUserHandler)
+    }
+
+    return r
+}
+```
+
+### 4. Error Handling
+- **[Mandatory]** Use consistent error response format
+- **[Mandatory]** Map internal errors to appropriate HTTP status codes
+- **[Mandatory]** Log errors with context
+- **[Recommended]** Use custom error types for business logic errors
+
+**Example:**
+```go
+// ✅ Good: Centralized error handling
+func HandleError(c *gin.Context, err error) {
+    var statusCode int
+    var message string
+
+    switch {
+    case errors.Is(err, ErrNotFound):
+        statusCode = http.StatusNotFound
+        message = "resource not found"
+    case errors.Is(err, ErrUnauthorized):
+        statusCode = http.StatusUnauthorized
+        message = "unauthorized"
+    case errors.Is(err, ErrValidation):
+        statusCode = http.StatusBadRequest
+        message = err.Error()
+    default:
+        statusCode = http.StatusInternalServerError
+        message = "internal server error"
+        log.Errorf("unexpected error: %v", err)
+    }
+
+    c.JSON(statusCode, ErrorResponse{
+        Error: message,
+    })
+}
+
+// Custom error types
+var (
+    ErrNotFound      = errors.New("resource not found")
+    ErrUnauthorized  = errors.New("unauthorized")
+    ErrValidation    = errors.New("validation error")
+)
+```
+
+### 5. Swagger/OpenAPI Documentation
+
+**Example:**
+```go
+// ✅ Good: Comprehensive API documentation
+
+// @title User Management API
+// @version 1.0
+// @description API for managing users
+// @contact.name API Support
+// @contact.email support@example.com
+// @host localhost:8080
+// @BasePath /api/v1
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+
+// @Summary Create a new user
+// @Description Create a new user with the provided information
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param request body CreateUserRequest true "User creation request"
+// @Success 201 {object} UserResponse
+// @Failure 400 {object} ErrorResponse "Invalid request"
+// @Failure 500 {object} ErrorResponse "Internal server error"
+// @Router /users [post]
+func (h *UserHandler) CreateUser(c *gin.Context) {
+    // Implementation
+}
+
+// Generate swagger docs:
+// go install github.com/swaggo/swag/cmd/swag@latest
+// swag init -g main.go
+```
+
+### 6. Validation
+- **[Mandatory]** Validate all input at handler level
+- **[Mandatory]** Use validation libraries (e.g., `go-playground/validator`)
+- **[Recommended]** Define custom validators for business rules
+
+**Example:**
+```go
+// ✅ Good: Structured validation
+type CreateUserRequest struct {
+    Email    string `json:"email" validate:"required,email,max=255"`
+    Username string `json:"username" validate:"required,min=3,max=50,alphanum"`
+    Age      int    `json:"age" validate:"required,min=18,max=120"`
+}
+
+func (h *UserHandler) CreateUser(c *gin.Context) {
+    var req CreateUserRequest
+
+    // Bind and validate
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, ErrorResponse{
+            Error: "invalid request body",
+        })
+        return
+    }
+
+    // Additional validation
+    if err := h.validator.Struct(req); err != nil {
+        validationErrors := err.(validator.ValidationErrors)
+        c.JSON(http.StatusBadRequest, ErrorResponse{
+            Error:   "validation failed",
+            Details: formatValidationErrors(validationErrors),
+        })
+        return
+    }
+
+    // Process valid request
+}
+
+// Custom validator
+func ValidateUsername(fl validator.FieldLevel) bool {
+    username := fl.Field().String()
+    // Custom validation logic
+    return len(username) >= 3 && isValidUsernameFormat(username)
+}
+
+// Register custom validator
+func setupValidator() *validator.Validate {
+    v := validator.New()
+    v.RegisterValidation("custom_username", ValidateUsername)
+    return v
+}
+```
+
+### 7. Context Usage
+- **[Mandatory]** Pass context through all layers (handler → service → repository)
+- **[Mandatory]** Use `c.Request.Context()` in Gin handlers
+- **[Recommended]** Set timeouts for long-running operations
+
+**Example:**
+```go
+// ✅ Good: Context propagation
+func (h *UserHandler) GetUser(c *gin.Context) {
+    ctx := c.Request.Context()
+
+    // Add timeout
+    ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+    defer cancel()
+
+    user, err := h.userService.GetByID(ctx, c.Param("id"))
+    if err != nil {
+        HandleError(c, err)
+        return
+    }
+
+    c.JSON(http.StatusOK, toUserResponse(user))
+}
+
+// Service layer
+func (s *UserService) GetByID(ctx context.Context, id string) (*User, error) {
+    return s.repo.FindByID(ctx, id)
+}
+
+// Repository layer
+func (r *UserRepository) FindByID(ctx context.Context, id string) (*User, error) {
+    var user User
+    err := r.db.WithContext(ctx).First(&user, "id = ?", id).Error
+    return &user, err
+}
+```
+
+## REST API Best Practices
+
+### 1. HTTP Methods
+- **GET**: Retrieve resources (idempotent, cacheable)
+- **POST**: Create new resources
+- **PUT**: Replace entire resource (idempotent)
+- **PATCH**: Partial update (may or may not be idempotent)
+- **DELETE**: Remove resource (idempotent)
+
+### 2. Status Codes
+- **200 OK**: Successful GET, PUT, PATCH, DELETE
+- **201 Created**: Successful POST
+- **204 No Content**: Successful DELETE with no response body
+- **400 Bad Request**: Invalid input
+- **401 Unauthorized**: Authentication required
+- **403 Forbidden**: Authenticated but not authorized
+- **404 Not Found**: Resource doesn't exist
+- **409 Conflict**: Request conflicts with current state
+- **422 Unprocessable Entity**: Validation errors
+- **500 Internal Server Error**: Server-side error
+
+### 3. Pagination
+- **[Mandatory]** Implement pagination for list endpoints
+- **[Recommended]** Use consistent query parameters
+
+**Example:**
+```go
+type PaginationParams struct {
+    Page     int `form:"page" binding:"min=1" default:"1"`
+    PageSize int `form:"page_size" binding:"min=1,max=100" default:"20"`
+}
+
+func (h *UserHandler) ListUsers(c *gin.Context) {
+    var params PaginationParams
+    if err := c.ShouldBindQuery(&params); err != nil {
+        c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+        return
+    }
+
+    users, total, err := h.userService.List(c.Request.Context(), params.Page, params.PageSize)
+    if err != nil {
+        HandleError(c, err)
+        return
+    }
+
+    c.JSON(http.StatusOK, ListResponse{
+        Data:       users,
+        Total:      total,
+        Page:       params.Page,
+        PageSize:   params.PageSize,
+        TotalPages: (int(total) + params.PageSize - 1) / params.PageSize,
+    })
+}
+```
+
+### 4. API Versioning
+- **[Mandatory]** Version APIs explicitly
+- **[Recommended]** Use URL path versioning (`/api/v1/`)
+
+**Example:**
+```go
+func SetupRouter() *gin.Engine {
+    r := gin.Default()
+
+    v1 := r.Group("/api/v1")
+    {
+        v1.GET("/users/:id", getUserV1)
+        v1.POST("/users", createUserV1)
+    }
+
+    v2 := r.Group("/api/v2")
+    {
+        v2.GET("/users/:id", getUserV2)
+        v2.POST("/users", createUserV2)
+    }
+
+    return r
+}
+```

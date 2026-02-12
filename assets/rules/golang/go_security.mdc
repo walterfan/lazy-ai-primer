@@ -1,0 +1,287 @@
+---
+description: Security best practices for Go
+globs: "*.go"
+alwaysApply: false
+---
+
+## Security Management
+
+### 1. Sensitive Data Handling
+- **NEVER** log secret values, passwords, or tokens
+- **NEVER** include credentials in error messages
+- Use secure hashing algorithms (bcrypt, argon2) for passwords
+- Encrypt sensitive data before storing in database/cache
+- Sanitize user inputs to prevent injection attacks
+- **[Mandatory]** Use `crypto/rand` for cryptographic random numbers, not `math/rand`
+
+**Example:**
+```go
+// ✅ Good: Secure password hashing
+import "golang.org/x/crypto/bcrypt"
+
+func HashPassword(password string) (string, error) {
+    hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+    if err != nil {
+        return "", err
+    }
+    return string(hash), nil
+}
+
+// ✅ Good: Cryptographic random number generation
+import "crypto/rand"
+
+func GenerateToken() (string, error) {
+    b := make([]byte, 32)
+    if _, err := rand.Read(b); err != nil {
+        return "", err
+    }
+    return base64.URLEncoding.EncodeToString(b), nil
+}
+
+// ❌ Bad: Using math/rand for security
+import "math/rand"
+
+func GenerateToken() string {
+    return fmt.Sprintf("%d", rand.Int())  // Predictable!
+}
+```
+
+### 2. AWS Integration
+- Use IAM roles instead of hardcoded credentials
+- Implement retry logic with exponential backoff for AWS calls
+- Handle AWS exceptions gracefully (throttling, access denied)
+- Use resource tags for tracking and auditing
+- **[Mandatory]** Never commit AWS credentials to version control
+- Use AWS SDK for Go v2 for better security and performance
+
+### 3. Authentication & Authorization
+- **[Mandatory]** Verify user permissions at handler/middleware level
+- **[Mandatory]** Use standard authentication mechanisms (JWT, OAuth2)
+- **[Mandatory]** Implement data-level authorization checks
+- **[Mandatory]** Validate JWT tokens properly (signature, expiration, claims)
+- **[Mandatory]** Use HTTPS in production
+- **[Recommended]** Implement rate limiting per user/IP
+
+**Example:**
+```go
+// ✅ Good: JWT validation middleware
+func AuthMiddleware(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        token := extractToken(r)
+        if token == "" {
+            http.Error(w, "Unauthorized", http.StatusUnauthorized)
+            return
+        }
+
+        claims, err := validateToken(token)
+        if err != nil {
+            http.Error(w, "Invalid token", http.StatusUnauthorized)
+            return
+        }
+
+        // Add claims to context
+        ctx := context.WithValue(r.Context(), "claims", claims)
+        next.ServeHTTP(w, r.WithContext(ctx))
+    })
+}
+```
+
+### 4. Input Validation and Sanitization
+- **[Mandatory]** Any parameters input by users must go through validation
+  - Prevent memory exhaustion from excessive page size
+  - Prevent slow queries from malicious parameters
+  - Prevent arbitrary redirection
+  - Prevent SQL injection (use parameterized queries)
+  - Prevent command injection (avoid `os/exec` with user input)
+  - Prevent ReDoS (Regular Expression Denial of Service)
+- **[Mandatory]** Validate regular expressions - some patterns can cause ReDoS attacks
+- **[Mandatory]** Sanitize user input before displaying in HTML
+- **[Mandatory]** Use CSRF tokens for state-changing operations
+- **[Mandatory]** Validate file uploads (type, size, content)
+
+**Example:**
+```go
+// ✅ Good: Input validation
+type CreateUserRequest struct {
+    Email    string `json:"email" validate:"required,email,max=255"`
+    Username string `json:"username" validate:"required,min=3,max=50,alphanum"`
+    Age      int    `json:"age" validate:"required,min=18,max=120"`
+}
+
+func (h *Handler) CreateUser(c *gin.Context) {
+    var req CreateUserRequest
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+        return
+    }
+
+    // Validate using validator
+    if err := h.validator.Struct(req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+
+    // Process validated input
+}
+
+// ❌ Bad: No validation
+func (h *Handler) CreateUser(c *gin.Context) {
+    var req map[string]interface{}
+    c.BindJSON(&req)
+    // Directly use req["email"] without validation - dangerous!
+}
+```
+
+### 5. SQL Injection Prevention
+- **[Mandatory]** Always use parameterized queries or prepared statements
+- **[Mandatory]** Never concatenate user input into SQL strings
+- **[Mandatory]** Use GORM or sqlx for safe query building
+- **[Mandatory]** If using raw SQL, always use placeholders (`?` or `$1`)
+
+**Example:**
+```go
+// ✅ Good: Parameterized query
+func GetUserByEmail(db *sql.DB, email string) (*User, error) {
+    var user User
+    err := db.QueryRow(
+        "SELECT id, email, name FROM users WHERE email = ?",
+        email,
+    ).Scan(&user.ID, &user.Email, &user.Name)
+    return &user, err
+}
+
+// ✅ Good: Using GORM
+func GetUserByEmail(db *gorm.DB, email string) (*User, error) {
+    var user User
+    err := db.Where("email = ?", email).First(&user).Error
+    return &user, err
+}
+
+// ❌ Bad: SQL injection vulnerability
+func GetUserByEmail(db *sql.DB, email string) (*User, error) {
+    query := fmt.Sprintf("SELECT * FROM users WHERE email = '%s'", email)
+    // Attacker can inject: ' OR '1'='1
+    return db.Query(query)
+}
+```
+
+### 6. Command Injection Prevention
+- **[Mandatory]** Avoid using `os/exec` with user input
+- **[Mandatory]** If you must use `exec`, validate and sanitize input thoroughly
+- **[Recommended]** Use allowlists, not denylists, for validation
+- **[Mandatory]** Never pass unsanitized user input to shell
+
+**Example:**
+```go
+// ✅ Good: Validated input
+func RunCommand(command string) error {
+    allowedCommands := map[string]bool{
+        "status": true,
+        "info":   true,
+    }
+
+    if !allowedCommands[command] {
+        return errors.New("invalid command")
+    }
+
+    cmd := exec.Command("./myapp", command)
+    return cmd.Run()
+}
+
+// ❌ Bad: Command injection vulnerability
+func RunCommand(userInput string) error {
+    cmd := exec.Command("sh", "-c", userInput)  // Dangerous!
+    return cmd.Run()
+}
+```
+
+### 7. Data Protection
+- **[Mandatory]** Direct display of user sensitive data is not allowed - data must be masked
+  - Example: Phone number `13812349119` should display as `138****9119`
+- **[Mandatory]** Never log sensitive data (secrets, passwords, tokens, PII)
+- **[Mandatory]** Never include sensitive data in exception messages
+- **[Recommended]** Use structured logging with field filtering
+
+**Example:**
+```go
+// ✅ Good: Mask sensitive data
+func MaskPhoneNumber(phone string) string {
+    if len(phone) < 7 {
+        return phone
+    }
+    return phone[:3] + "****" + phone[len(phone)-4:]
+}
+
+// ✅ Good: Structured logging without sensitive data
+log.WithFields(log.Fields{
+    "user_id": userID,
+    "action":  "login",
+    // NOT logging password or token
+}).Info("User login attempt")
+```
+
+### 8. Cryptography Best Practices
+- **[Mandatory]** Use well-vetted crypto libraries (Go standard library)
+- **[Mandatory]** Use TLS 1.2 or higher
+- **[Recommended]** Use AES-256 for symmetric encryption
+- **[Recommended]** Use RSA-2048 or higher for asymmetric encryption
+- **[Mandatory]** Never implement your own crypto algorithms
+
+**Example:**
+```go
+// ✅ Good: Using standard crypto library
+import (
+    "crypto/aes"
+    "crypto/cipher"
+    "crypto/rand"
+    "io"
+)
+
+func Encrypt(plaintext []byte, key []byte) ([]byte, error) {
+    block, err := aes.NewCipher(key)
+    if err != nil {
+        return nil, err
+    }
+
+    ciphertext := make([]byte, aes.BlockSize+len(plaintext))
+    iv := ciphertext[:aes.BlockSize]
+    if _, err := io.ReadFull(rand.Reader, iv); err != nil {
+        return nil, err
+    }
+
+    stream := cipher.NewCFBEncrypter(block, iv)
+    stream.XORKeyStream(ciphertext[aes.BlockSize:], plaintext)
+    return ciphertext, nil
+}
+```
+
+### 9. Secure Headers
+- **[Mandatory]** Set appropriate security headers in HTTP responses
+- **[Recommended]** Use middleware to set security headers consistently
+
+**Example:**
+```go
+// ✅ Good: Security headers middleware
+func SecurityHeadersMiddleware() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        c.Header("X-Content-Type-Options", "nosniff")
+        c.Header("X-Frame-Options", "DENY")
+        c.Header("X-XSS-Protection", "1; mode=block")
+        c.Header("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+        c.Header("Content-Security-Policy", "default-src 'self'")
+        c.Next()
+    }
+}
+```
+
+### 10. Dependency Security
+- **[Mandatory]** Regularly update dependencies to patch security vulnerabilities
+- **[Mandatory]** Use `go mod verify` to verify dependencies
+- **[Recommended]** Use tools like `govulncheck` to scan for vulnerabilities
+- **[Mandatory]** Review dependencies before adding them to the project
+
+```bash
+# Check for vulnerabilities
+go install golang.org/x/vuln/cmd/govulncheck@latest
+govulncheck ./...
+```

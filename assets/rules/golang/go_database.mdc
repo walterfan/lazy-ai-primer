@@ -1,0 +1,339 @@
+---
+description: Database, GORM, and data model best practices
+globs: "*.go"
+alwaysApply: false
+---
+
+## Database & Persistence
+
+### 1. GORM Usage
+- **[Mandatory]** Use parameterized queries to prevent SQL injection
+  - Always use `Where("email = ?", email)` not `Where(fmt.Sprintf("email = '%s'", email))`
+- **[Recommended]** Use GORM v2 for better performance and features
+- **[Mandatory]** Handle errors from database operations
+- **[Mandatory]** Use appropriate query methods (`First`, `Find`, `Create`, `Update`, `Delete`)
+- **[Recommended]** Use transactions for operations that modify multiple records
+
+**Example:**
+```go
+// ✅ Good: Parameterized query with proper error handling
+func GetUserByEmail(db *gorm.DB, email string) (*User, error) {
+    var user User
+    err := db.Where("email = ?", email).First(&user).Error
+    if err != nil {
+        if errors.Is(err, gorm.ErrRecordNotFound) {
+            return nil, ErrUserNotFound
+        }
+        return nil, err
+    }
+    return &user, nil
+}
+
+// ❌ Bad: String concatenation (SQL injection risk)
+func GetUserByEmail(db *gorm.DB, email string) (*User, error) {
+    var user User
+    err := db.Where(fmt.Sprintf("email = '%s'", email)).First(&user).Error
+    return &user, err
+}
+
+// ❌ Bad: Not handling errors
+func GetUserByEmail(db *gorm.DB, email string) *User {
+    var user User
+    db.Where("email = ?", email).First(&user)  // Ignoring error
+    return &user
+}
+```
+
+### 2. Model/Struct Design
+- **[Mandatory]** Use struct tags for GORM and JSON mappings
+- **[Mandatory]** Implement `TableName()` method for custom table names
+- **[Recommended]** Use `gorm.Model` for standard fields (ID, CreatedAt, UpdatedAt, DeletedAt)
+- **[Mandatory]** Validate data at application level, not just database level
+- **[Recommended]** Use pointers for optional fields
+
+**Example:**
+```go
+// ✅ Good: Proper model definition
+type User struct {
+    gorm.Model              // Includes ID, CreatedAt, UpdatedAt, DeletedAt
+    Email    string    `gorm:"uniqueIndex;not null;size:255" json:"email"`
+    Username string    `gorm:"uniqueIndex;not null;size:50" json:"username"`
+    Password string    `gorm:"not null" json:"-"`  // Never expose in JSON
+    Age      *int      `gorm:"" json:"age,omitempty"`  // Pointer for optional field
+    IsActive bool      `gorm:"default:true" json:"is_active"`
+}
+
+func (User) TableName() string {
+    return "users"
+}
+
+// ❌ Bad: No struct tags, unclear optional fields
+type User struct {
+    ID       uint
+    Email    string
+    Password string
+    Age      int  // Can't distinguish between 0 and unset
+}
+```
+
+### 3. Struct Tags Best Practices
+- **[Mandatory]** Use `json` tags to control JSON serialization
+- **[Mandatory]** Use `json:"-"` to exclude sensitive fields (passwords, tokens)
+- **[Mandatory]** Use `gorm` tags for database schema definition
+- **[Recommended]** Use `validate` tags for input validation
+- **[Recommended]** Use `binding` tags with Gin for request binding
+
+**Example:**
+```go
+type User struct {
+    ID        uint      `gorm:"primaryKey" json:"id"`
+    Email     string    `gorm:"uniqueIndex;not null" json:"email" validate:"required,email"`
+    Password  string    `gorm:"not null" json:"-"`  // Never in JSON
+    FirstName string    `gorm:"size:50" json:"first_name,omitempty" validate:"max=50"`
+    LastName  string    `gorm:"size:50" json:"last_name,omitempty" validate:"max=50"`
+    CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
+    UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+}
+```
+
+### 4. Transaction Management
+- **[Mandatory]** Use transactions for operations that modify multiple records
+- **[Mandatory]** Handle transaction rollback on errors
+- **[Recommended]** Keep transactions as short as possible
+- **[Mandatory]** Use `db.Transaction()` for automatic rollback on panic
+
+**Example:**
+```go
+// ✅ Good: Proper transaction handling
+func TransferFunds(db *gorm.DB, fromID, toID uint, amount float64) error {
+    return db.Transaction(func(tx *gorm.DB) error {
+        // Debit from account
+        if err := tx.Model(&Account{}).
+            Where("id = ? AND balance >= ?", fromID, amount).
+            Update("balance", gorm.Expr("balance - ?", amount)).Error; err != nil {
+            return err
+        }
+
+        // Credit to account
+        if err := tx.Model(&Account{}).
+            Where("id = ?", toID).
+            Update("balance", gorm.Expr("balance + ?", amount)).Error; err != nil {
+            return err
+        }
+
+        return nil  // Commit
+    })
+}
+
+// ❌ Bad: No transaction, inconsistent state possible
+func TransferFunds(db *gorm.DB, fromID, toID uint, amount float64) error {
+    db.Model(&Account{}).Where("id = ?", fromID).Update("balance", gorm.Expr("balance - ?", amount))
+    // If this fails, first update is committed but second is not
+    return db.Model(&Account{}).Where("id = ?", toID).Update("balance", gorm.Expr("balance + ?", amount)).Error
+}
+```
+
+### 5. Query Optimization
+- **[Mandatory]** Use pagination for large result sets
+- **[Mandatory]** Avoid N+1 query problems (use `Preload` or `Joins`)
+- **[Mandatory]** Select specific columns instead of `SELECT *` for large tables
+- **[Mandatory]** Create appropriate indexes on frequently queried columns
+- **[Recommended]** Use `Limit` to prevent accidentally loading entire table
+
+**Example:**
+```go
+// ✅ Good: Pagination with specific columns
+func ListUsers(db *gorm.DB, page, pageSize int) ([]User, error) {
+    var users []User
+    offset := (page - 1) * pageSize
+    err := db.Select("id", "email", "username", "created_at").
+        Limit(pageSize).
+        Offset(offset).
+        Find(&users).Error
+    return users, err
+}
+
+// ✅ Good: Avoiding N+1 with Preload
+func GetUsersWithOrders(db *gorm.DB) ([]User, error) {
+    var users []User
+    err := db.Preload("Orders").Find(&users).Error
+    return users, err
+}
+
+// ❌ Bad: No pagination, loading all data
+func ListUsers(db *gorm.DB) ([]User, error) {
+    var users []User
+    err := db.Find(&users).Error  // Could load millions of records
+    return users, err
+}
+
+// ❌ Bad: N+1 query problem
+func GetUsersWithOrders(db *gorm.DB) ([]User, error) {
+    var users []User
+    db.Find(&users)
+    for i := range users {
+        // Each iteration triggers a separate query
+        db.Model(&users[i]).Association("Orders").Find(&users[i].Orders)
+    }
+    return users, nil
+}
+```
+
+### 6. Raw SQL and SQL Injection Prevention
+- **[Mandatory]** Use parameterized queries for raw SQL
+- **[Mandatory]** Never concatenate user input into SQL strings
+- **[Recommended]** Prefer GORM query builder over raw SQL
+
+**Example:**
+```go
+// ✅ Good: Parameterized raw SQL
+func SearchUsers(db *gorm.DB, keyword string) ([]User, error) {
+    var users []User
+    err := db.Raw(
+        "SELECT * FROM users WHERE username LIKE ? OR email LIKE ?",
+        "%"+keyword+"%",
+        "%"+keyword+"%",
+    ).Scan(&users).Error
+    return users, err
+}
+
+// ❌ Bad: SQL injection vulnerability
+func SearchUsers(db *gorm.DB, keyword string) ([]User, error) {
+    var users []User
+    query := fmt.Sprintf("SELECT * FROM users WHERE username LIKE '%%%s%%'", keyword)
+    err := db.Raw(query).Scan(&users).Error
+    return users, err
+}
+```
+
+### 7. Connection Pool Management
+- **[Mandatory]** Configure connection pool settings appropriately
+- **[Recommended]** Set `MaxIdleConns`, `MaxOpenConns`, and `ConnMaxLifetime`
+- **[Mandatory]** Monitor connection pool usage
+
+**Example:**
+```go
+// ✅ Good: Proper connection pool configuration
+func InitDB(dsn string) (*gorm.DB, error) {
+    db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+    if err != nil {
+        return nil, err
+    }
+
+    sqlDB, err := db.DB()
+    if err != nil {
+        return nil, err
+    }
+
+    // Configure connection pool
+    sqlDB.SetMaxIdleConns(10)
+    sqlDB.SetMaxOpenConns(100)
+    sqlDB.SetConnMaxLifetime(time.Hour)
+
+    return db, nil
+}
+```
+
+### 8. Error Handling
+- **[Mandatory]** Check for `gorm.ErrRecordNotFound` specifically
+- **[Mandatory]** Return meaningful errors to callers
+- **[Recommended]** Wrap errors with context
+
+**Example:**
+```go
+// ✅ Good: Proper error handling
+func GetUserByID(db *gorm.DB, id uint) (*User, error) {
+    var user User
+    err := db.First(&user, id).Error
+    if err != nil {
+        if errors.Is(err, gorm.ErrRecordNotFound) {
+            return nil, fmt.Errorf("user not found: %w", ErrNotFound)
+        }
+        return nil, fmt.Errorf("failed to get user: %w", err)
+    }
+    return &user, nil
+}
+
+// ❌ Bad: Not distinguishing between errors
+func GetUserByID(db *gorm.DB, id uint) (*User, error) {
+    var user User
+    err := db.First(&user, id).Error
+    return &user, err  // Caller can't distinguish not found from DB error
+}
+```
+
+## Performance Considerations
+
+### Index Best Practices
+- **[Mandatory]** Create indexes on foreign keys
+- **[Mandatory]** Create composite indexes for multi-column queries (order matters)
+- **[Recommended]** Monitor index usage and remove unused indexes
+- **[Mandatory]** Don't create too many indexes (balance query vs write performance)
+
+**Example:**
+```go
+type User struct {
+    gorm.Model
+    Email    string `gorm:"uniqueIndex"`           // Unique index
+    Username string `gorm:"uniqueIndex"`           // Unique index
+    Status   string `gorm:"index"`                 // Regular index
+    TenantID uint   `gorm:"index:idx_tenant_user"` // Composite index part 1
+    UserID   uint   `gorm:"index:idx_tenant_user"` // Composite index part 2
+}
+```
+
+### Batch Operations
+- **[Mandatory]** Use batch operations for multiple inserts/updates
+- **[Recommended]** Configure appropriate batch size (typically 100-1000)
+
+**Example:**
+```go
+// ✅ Good: Batch insert
+func CreateUsers(db *gorm.DB, users []User) error {
+    return db.CreateInBatches(users, 100).Error
+}
+
+// ❌ Bad: Individual inserts
+func CreateUsers(db *gorm.DB, users []User) error {
+    for _, user := range users {
+        if err := db.Create(&user).Error; err != nil {
+            return err
+        }
+    }
+    return nil
+}
+```
+
+### Caching Strategy
+- **[Recommended]** Use Redis or in-memory cache for frequently accessed data
+- **[Mandatory]** Set appropriate TTL values
+- **[Mandatory]** Implement cache invalidation on updates
+- **[Recommended]** Use cache-aside pattern
+
+**Example:**
+```go
+// ✅ Good: Cache-aside pattern
+func GetUser(cache *redis.Client, db *gorm.DB, id uint) (*User, error) {
+    // Try cache first
+    key := fmt.Sprintf("user:%d", id)
+    cached, err := cache.Get(context.Background(), key).Result()
+    if err == nil {
+        var user User
+        if err := json.Unmarshal([]byte(cached), &user); err == nil {
+            return &user, nil
+        }
+    }
+
+    // Cache miss, get from DB
+    var user User
+    if err := db.First(&user, id).Error; err != nil {
+        return nil, err
+    }
+
+    // Store in cache
+    data, _ := json.Marshal(user)
+    cache.Set(context.Background(), key, data, 10*time.Minute)
+
+    return &user, nil
+}
+```

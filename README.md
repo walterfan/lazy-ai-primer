@@ -152,6 +152,23 @@ AI 辅助编程的新范式，与 AI 协作的高效开发方法。
 | [Tutorial 9](doc/source/6.llamaindex/tutorial_09_knowledge_base.rst) | 构建知识库系统 | 企业级知识库完整实现 |
 | [Tutorial 10](doc/source/6.llamaindex/tutorial_10_production.rst) | 生产部署 | Docker、缓存、监控、安全 |
 
+### 7. Eino 入门
+
+Go 语言 LLM 应用框架（CloudWeGo），类型安全、流式优先、可组合。基于 [Eino User Manual](https://www.cloudwego.io/docs/eino/) 与 [DeepWiki Eino](https://deepwiki.com/cloudwego/eino)。
+
+| 教程 | 主题 | 内容 |
+|------|------|------|
+| [Tutorial 1](doc/source/7.eino/tutorial_01_introduction.md) | Eino 简介 | 三支柱、设计哲学、仓库生态 |
+| [Tutorial 2](doc/source/7.eino/tutorial_02_quickstart.md) | 快速开始 | 最小 LLM 应用、第一个 Agent |
+| [Tutorial 3](doc/source/7.eino/tutorial_03_components.md) | 组件系统 | ChatModel、Tool、Retriever、Embedder 等 |
+| [Tutorial 4](doc/source/7.eino/tutorial_04_chain_graph.md) | Chain 与 Graph | 编排框架、统一运行时 |
+| [Tutorial 5](doc/source/7.eino/tutorial_05_streaming.md) | 流式处理 | Invoke/Stream/Collect/Transform |
+| [Tutorial 6](doc/source/7.eino/tutorial_06_react_agent.md) | ReAct Agent | 推理+行动、ToolsNode、循环 |
+| [Tutorial 7](doc/source/7.eino/tutorial_07_adk.md) | ADK | Agent 接口、Runner、ChatModelAgent |
+| [Tutorial 8](doc/source/7.eino/tutorial_08_multi_agent.md) | 多 Agent | MultiAgent、DeepAgent、Host-Specialist |
+| [Tutorial 9](doc/source/7.eino/tutorial_09_human_in_loop.md) | Human-in-the-Loop | 中断、检查点、恢复 |
+| [Tutorial 10](doc/source/7.eino/tutorial_10_ecosystem.md) | 生态与生产 | EinoExt、回调、可观测性 |
+
 ---
 
 ## 📖 推荐阅读
@@ -165,6 +182,7 @@ AI 辅助编程的新范式，与 AI 协作的高效开发方法。
 - [LangChain 官方文档](https://python.langchain.com/)
 - [LangGraph 官方文档](https://langchain-ai.github.io/langgraph/)
 - [LlamaIndex 官方文档](https://docs.llamaindex.ai/)
+- [Eino User Manual \| CloudWeGo](https://www.cloudwego.io/docs/eino/)
 - [PyTorch 官方文档](https://pytorch.org/docs/)
 - [Hugging Face](https://huggingface.co/)
 

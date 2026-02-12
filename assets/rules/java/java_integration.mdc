@@ -1,0 +1,395 @@
+---
+description: External service integration patterns (AWS, HTTP clients, Elasticsearch, MQ)
+globs: "*.java"
+alwaysApply: false
+---
+
+# External Service Integration
+
+## AWS Service Integration
+
+### 1. Repository Pattern (AWS SDK v1)
+
+**Base Repository Structure:**
+```java
+@Component
+public class AWSSecretsManagerRepository extends AWSBaseRepository<AWSSecretsManager> {
+    @Override
+    protected AWSSecretsManager generateClient(String region) {
+        return AWSSecretsManagerClientBuilder.standard()
+            .withClientConfiguration(config)
+            .withRegion(region)
+            .build();
+    }
+}
+```
+
+**Key Principles:**
+- Extend `AWSBaseRepository<T>` for all AWS repositories
+- Use `@Component` annotation for Spring discovery
+- Override `generateClient()` for SDK client initialization
+- Implement `getDefaultRegion()` for region management
+
+### 2. Credentials Provider Pattern
+
+**Use ThreadLocal for User Credentials:**
+```java
+protected AWSCredentialsProvider getProvider(boolean useDefaultProvider) {
+    if (useDefaultProvider) {
+        return providerManager.getCurrentProvider(); // CSMS server credentials
+    }
+    // User credentials from ThreadLocal
+    AWSCredentialsProvider provider = 
+        (AWSCredentialsProvider) ThreadLocalHelper.getValue(ThreadLocalHelper.AWS_CREDENTIALS_PROVIDER);
+    if (null == provider) {
+        throw new ResourceNotAccessException("Unable to access resources of aws.");
+    }
+    return provider;
+}
+```
+
+**Key Points:**
+- Use `useDefaultProvider = true` for CSMS internal operations
+- User credentials stored in `ThreadLocalHelper` during request
+- Always attach credentials via `.withRequestCredentialsProvider(getProvider())`
+
+### 3. Retry Strategy with @Retryable
+
+**For Throttling and Transient Failures:**
+```java
+@Retryable(
+    include = {AWSSecretsManagerException.class, LimitExceededException.class},
+    exclude = {ResourceNotFoundException.class, AccessDeniedException.class},
+    maxAttemptsExpression = "${aws.retry.maxAttempts:3}",
+    backoff = @Backoff(
+        delayExpression = "${aws.retry.delay:500}",
+        maxDelayExpression = "${aws.retry.maxDelay:1000}",
+        multiplierExpression = "${aws.retry.multiplier:1.5}",
+        random = true
+    )
+)
+public GetSecretValueResult getSecret(String region, String secretName) {
+    // Implementation
+}
+```
+
+**Best Practices:**
+- Include: Retryable exceptions (throttling, transient errors)
+- Exclude: Non-retryable exceptions (not found, access denied)
+- Use exponential backoff with jitter (`random = true`)
+- Configure via properties for different environments
+
+### 4. AWS Service-Specific Patterns
+
+#### AWS Secrets Manager
+```java
+// Always format secret names
+GetSecretValueRequest request = new GetSecretValueRequest()
+    .withSecretId(PrefixPathUtil.fmtSecretName(secretName))
+    .withVersionId(versionId)
+    .withRequestCredentialsProvider(getProvider());
+```
+
+#### AWS STS (AssumeRole)
+```java
+// Cache credentials with expiration check
+private volatile AWSSessionCredentials sessionCredentials;
+private volatile long expireTime;
+
+private boolean needRefresh() {
+    return sessionCredentials == null 
+        || (expireTime - System.currentTimeMillis())/1000 < durationSeconds/4;
+}
+```
+
+#### AWS IAM
+```java
+// Tag resources created by CSMS
+private static final Tag CSMS_TAG = new Tag()
+    .withKey("SourceFrom")
+    .withValue("CSMS");
+
+CreateRoleRequest request = new CreateRoleRequest()
+    .withTags(CSMS_TAG)
+    // ... other parameters
+```
+
+### 5. Multi-Region Support
+
+**Region-Aware Client Management:**
+```java
+@PostConstruct
+protected void initClient() {
+    if (null == getRegions()) {
+        clientMap.put(getDefaultRegion(), generateClient(getDefaultRegion()));
+    } else {
+        getRegions().forEach(region -> 
+            clientMap.put(region, generateClient(region))
+        );
+    }
+}
+```
+
+**Usage:**
+- Primary region: `awsProperties.getCurrentRegion()`
+- All regions: `awsProperties.getRegions()`
+- Use region-specific clients for multi-region operations
+
+### 6. AWS Client Configuration
+
+**Connection Pool Settings:**
+```java
+@Value("${aws.client.maxConn:50}")
+private int maxConn;
+
+ClientConfiguration config = new ClientConfiguration();
+config.setMaxConnections(maxConn);
+config.setUseTcpKeepAlive(true);
+config.setUseGzip(true);
+```
+
+### 7. Monitoring AWS Calls
+
+**Track Metrics for All AWS Operations:**
+```java
+long startTime = System.currentTimeMillis();
+try {
+    GetSecretValueResult result = client.getSecretValue(request);
+    long spendTime = System.currentTimeMillis() - startTime;
+    MonitorHelper.trackAWSCallMetrics(MonitorEventType.REQUEST_SECRET_MANAGER, spendTime, null);
+    return result;
+} catch (AmazonServiceException e) {
+    long spendTime = System.currentTimeMillis() - startTime;
+    MonitorHelper.trackAWSCallMetrics(MonitorEventType.REQUEST_SECRET_MANAGER, spendTime, e);
+    throw e;
+}
+```
+
+## HTTP Client Integration (@ServiceInvoker)
+
+### 1. Declarative HTTP Client Pattern
+
+**Interface Definition:**
+```java
+@ServiceInvoker(serviceKey = ReleaseClient.SERVICE_KEY, retryable = true)
+public interface ReleaseClient {
+    String SERVICE_KEY = "release";
+    
+    @GetMapping("/api/endpoint")
+    ResponseWrapper<DataResponse> getData(@RequestParam String param);
+    
+    @PostMapping("/api/endpoint")
+    ResponseWrapper<Void> postData(@RequestBody RequestDto request);
+}
+```
+
+**Key Points:**
+- Framework auto-generates HTTP client proxy
+- Use `ResponseWrapper<T>` for standardized responses
+- `serviceKey` identifies backend service for routing/config
+- `retryable = true` enables automatic retries
+
+### 2. Request Interceptor for Authentication
+
+**JWT Token Injection:**
+```java
+@Component
+@Slf4j
+public class ReleaseClientInterceptor implements AsyncRequestInterceptor {
+    @Value("${csms.jwt.release.aud:release}")
+    private String aud;
+    
+    @Autowired
+    private CsmsAJWTSupport csmsJwtSupport;
+    
+    @Override
+    public void doWithRequest(@Nullable String serviceKey, 
+                              @Nullable MethodMetadata metadata,
+                              HttpRequest request, byte[] body) {
+        if (!ReleaseClient.SERVICE_KEY.equalsIgnoreCase(serviceKey)) {
+            return;
+        }
+        String token = csmsJwtSupport.buildToken(aud);
+        request.getHeaders().add(AUTHORIZATION, AUTHORIZATION_PREFIX_BEARER + token);
+    }
+}
+```
+
+**Best Practices:**
+- Implement `AsyncRequestInterceptor` interface
+- Filter by `serviceKey` to only intercept specific services
+- Use `@Component` for automatic discovery
+- Cache tokens if possible (check expiration)
+
+### 3. Response Handling
+
+**Structured Response DTOs:**
+```java
+// Response wrapper
+@Getter
+@Setter
+public class DataListResponse {
+    private DataInfo data;
+    private String status;
+}
+
+// Data container
+@Getter
+@Setter
+public class DataInfo {
+    private Integer total;
+    private List<DataItem> list;
+}
+```
+
+**Error Handling:**
+```java
+ResponseWrapper<DataResponse> response = client.getData(param);
+if (response.isSuccessful()) {
+    DataResponse data = response.getData();
+    // Process data
+} else {
+    log.error("API call failed: {}", response.getError());
+    throw new InternalServiceException("External service call failed");
+}
+```
+
+## Elasticsearch Integration
+
+### 1. Repository Pattern
+
+**Extend AbstractSearchRepository:**
+```java
+@Component
+public class SdkVersionAlertSearchRepository 
+    extends AbstractSearchRepository<SdkVersionAlertInfo> {
+    
+    @Override
+    protected String getIndexName() {
+        return "sdk_version_alerts";
+    }
+    
+    public void indexAlert(SdkVersionAlertInfo alert) {
+        index(alert.getId(), alert);
+    }
+    
+    public List<SdkVersionAlertInfo> searchByPath(String prefixPath) {
+        BoolQueryBuilder query = QueryBuilders.boolQuery()
+            .must(QueryBuilders.termQuery("prefixPath", prefixPath));
+        return search(query);
+    }
+}
+```
+
+### 2. Query Building
+
+**Use BoolQueryBuilder for Complex Queries:**
+```java
+BoolQueryBuilder query = QueryBuilders.boolQuery()
+    .must(QueryBuilders.termQuery("status", "active"))
+    .filter(QueryBuilders.rangeQuery("createTime").gte(startTime))
+    .should(QueryBuilders.matchQuery("description", keyword))
+    .minimumShouldMatch(1);
+```
+
+### 3. Data Indexing Best Practices
+
+- Use async queue pattern for high-performance writes
+- Implement batching for bulk operations
+- Handle index failures gracefully (drop or retry based on SLA)
+- Document index schema and mappings
+- Use `@ConfigurationProperties` for index configuration
+
+## Message Queue Integration
+
+### 1. Producer Pattern
+
+**Send Messages via IAsyncmqService:**
+```java
+@Autowired
+private IAsyncmqService asyncmqService;
+
+public void sendMessage(CronJobDto payload) {
+    asyncmqService.sendMessage(
+        topicName,
+        subTopicName,
+        payload,
+        "BusinessName"
+    );
+}
+```
+
+### 2. Consumer Pattern
+
+**Implement Handler Interface:**
+```java
+@Component
+@Slf4j
+public class CronJobSingleHandler implements SingleHandler<CronJobDto> {
+    
+    @Override
+    public ConsumeResult onMessage(TaskEntity<CronJobDto> taskEntity) {
+        String subTopicName = taskEntity.getTaskContext().getSubTopicName();
+        CronJobDto payload = taskEntity.getPayload();
+        
+        try {
+            // Process message
+            processMessage(payload);
+            return ConsumeResult.SUCCESS;
+        } catch (Exception e) {
+            log.error("Message processing failed", e);
+            return ConsumeResult.fail(e.getMessage());
+        }
+    }
+}
+```
+
+### 3. Message Queue Best Practices
+
+- Include tracking ID in all messages
+- Handle poison messages (invalid format) gracefully
+- Log message processing start and completion
+- Return appropriate `ConsumeResult` (SUCCESS/fail)
+- Don't let exceptions terminate the handler
+
+## Monitoring & Observability
+
+### 1. Metrics & APM
+
+- Track key business metrics (API calls, operations)
+- Monitor queue depths and processing times
+- Alert on error rates and latencies
+- Use `MonitorHelper` for consistent metric tracking
+
+### 2. Health Checks
+
+```java
+@Component
+public class HealthCheckService {
+    public void checkDependencies() {
+        // Check database
+        // Check Redis
+        // Check AWS connectivity
+        // Check external service availability
+    }
+}
+```
+
+**Implement:**
+- Actuator endpoints for health checks
+- Dependency checks (database, redis, AWS)
+- Include version and build info
+- Monitor resource usage (connections, threads)
+
+## General Integration Best Practices
+
+1. **Timeouts**: Set connection and read timeouts for all external calls
+2. **Circuit Breaker**: Implement circuit breaker for failing services
+3. **Retry Strategy**: Use exponential backoff with jitter
+4. **Logging**: Log all external service calls (request/response/duration)
+5. **Error Handling**: Map external errors to domain exceptions
+6. **Caching**: Cache responses when appropriate (consider TTL)
+7. **Rate Limiting**: Respect external service rate limits
+8. **Idempotency**: Design for idempotent operations
+9. **Versioning**: Version external APIs and maintain compatibility
+10. **Testing**: Mock external services in unit tests

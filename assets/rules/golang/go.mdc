@@ -1,0 +1,42 @@
+---
+description: Go code convention and best practice - Main index
+globs: "*.go"
+alwaysApply: false
+---
+
+# Go Code Conventions and Best Practices
+
+This is the main index for Go coding standards in this project.
+For detailed rules, see the domain-specific rule files below.
+
+## Rule Files
+
+- **[Naming Conventions](.cursor/rules/go_naming.mdc)** - Code style, naming rules
+- **[Web Framework](.cursor/rules/go_web.mdc)** - Gin/Echo best practices
+- **[Security](.cursor/rules/go_security.mdc)** - Security management
+- **[Database](.cursor/rules/go_database.mdc)** - GORM, entities, transactions
+- **[Concurrency](.cursor/rules/go_concurrency.mdc)** - Goroutines, channels, thread safety
+- **[API Design](.cursor/rules/go_api.mdc)** - REST API patterns
+- **[Common Pitfalls](.cursor/rules/go_common_pitfalls.mdc)** - Pitfalls and review checklist
+
+## Quick Navigation by Topic
+
+Find specific guidance quickly:
+
+- **Struct tags** → [go_database.mdc - Struct Tags Best Practices](#)
+- **SQL injection prevention** → [go_database.mdc - SQL Safety](#)
+- **Error handling** → [go_web.mdc - Error Handling](#)
+- **Sensitive data & security** → [go_security.mdc - Sensitive Data Handling](#)
+- **Logging standards** → [go_web.mdc - Logging Standards](#)
+- **Goroutine safety** → [go_concurrency.mdc - Goroutine Safety](#)
+- **Testing patterns** → [go_testing.mdc - Unit Tests](#)
+- **Configuration management** → [go_web.mdc - Configuration Management](#)
+- **Transaction management** → [go_database.mdc - Transaction Management](#)
+
+## Quick Reference
+
+All rule files apply to `*.go` files except `go_testing.mdc` which applies to `*_test.go`.
+Each file is self-contained and can be used independently.
+
+**Last Updated:** 2025-11-26
+**Maintained By:** Development Team

@@ -1,0 +1,64 @@
+---
+description: Concurrency, async processing, and thread safety
+globs: "*.java"
+alwaysApply: false
+---
+
+## Asynchronous Processing
+
+### 1. AsyncMQ/Kafka Integration
+- Use `IAsyncmqService` for message publishing
+- Implement `SingleHandler` or `BatchHandler` for message consumption
+- Handle message processing failures with retry logic
+- Use dead letter queues for failed messages
+- Keep message payloads serializable (JSON)
+
+### 2. Thread Safety
+
+#### Collection Thread Safety
+- **[Mandatory]** Use thread-safe collections for shared data:
+  - `ConcurrentHashMap` instead of `HashMap` for shared caches
+  - `CopyOnWriteArrayList` for read-heavy lists
+  - `ArrayBlockingQueue` for bounded queues
+- **[Mandatory]** Use `Collections.synchronizedList()` or `Collections.synchronizedMap()` only when wrapping existing collections, prefer concurrent collections
+- **[Mandatory]** Never use `Vector` or `Hashtable` (legacy, use concurrent alternatives)
+
+#### Locking and Synchronization
+- **[Mandatory]** Prefer `java.util.concurrent` locks over `synchronized` keyword for better control
+- Use `ReentrantLock` when you need tryLock, interruptible locking, or fairness
+- Use `ReadWriteLock` for read-heavy scenarios
+- **[Mandatory]** Always release locks in `finally` blocks
+- Document thread-safety guarantees in class JavaDoc
+
+**Example:**
+```java
+private final ReentrantLock lock = new ReentrantLock();
+
+public void updateCache() {
+    lock.lock();
+    try {
+        // Critical section
+    } finally {
+        lock.unlock();
+    }
+}
+```
+
+#### Thread Pool Management
+- **[Mandatory]** Use `ThreadPoolExecutor` with explicit parameters instead of `Executors` factory methods
+- Set appropriate core pool size, maximum pool size, and queue capacity
+- Use named thread pools for better debugging: `new ThreadPoolExecutor(..., new ThreadFactoryBuilder().setNameFormat("app-worker-%d").build())`
+- Handle `RejectedExecutionException` appropriately
+
+### 3. Scheduled Jobs
+- Implement `ICronJobInterface` for scheduled jobs
+- Configure via `CronJobConfiguration`
+- Include job status logging (start, progress, completion)
+- Handle exceptions to prevent job termination
+- **[Mandatory]** Use `@Scheduled` with fixed delay for jobs that need to wait for previous execution to complete
+
+## Performance Considerations - Async Processing
+- Use queue-based async pattern for non-blocking operations
+- Implement circuit breakers for external service calls
+- Set timeouts for all external calls
+- Monitor queue depths and processing latency

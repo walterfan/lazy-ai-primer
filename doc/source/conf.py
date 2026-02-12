@@ -31,10 +31,18 @@ release = '1'
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ['sphinx.ext.graphviz',
-'sphinx.ext.autodoc',
-'sphinxcontrib.plantuml'
+extensions = [
+    'sphinx.ext.graphviz',
+    'sphinx.ext.autodoc',
+    'sphinxcontrib.plantuml',
+    'myst_parser',
 ]
+# Support both .rst and .md (MyST) source files
+source_suffix = {
+    '.rst': 'restructuredtext',
+    '.md': 'myst',
+}
+myst_enable_extensions = ['colon_fence', 'deflist', 'tasklist']
 plantuml = 'java -jar /usr/local/bin/plantuml.jar'
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

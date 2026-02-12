@@ -1,0 +1,337 @@
+---
+description: Common Go pitfalls and review checklist
+globs: "*.go"
+alwaysApply: false
+---
+
+## Common Go Pitfalls
+
+### 1. Goroutine Leaks
+**Problem:** Starting goroutines without proper cleanup or cancellation mechanism.
+
+```go
+// ❌ Bad: Goroutine leak
+func ProcessItems(items []Item) {
+    for _, item := range items {
+        go func(item Item) {
+            // No way to stop or wait for this goroutine
+            processItem(item)
+        }(item)
+    }
+}
+
+// ✅ Good: Proper goroutine management
+func ProcessItems(ctx context.Context, items []Item) error {
+    var wg sync.WaitGroup
+    for _, item := range items {
+        wg.Add(1)
+        go func(item Item) {
+            defer wg.Done()
+            processItemWithContext(ctx, item)
+        }(item)
+    }
+    wg.Wait()
+    return nil
+}
+```
+
+### 2. Loop Variable Capture
+**Problem:** Goroutines capturing loop variables by reference.
+
+```go
+// ❌ Bad: All goroutines see the same (last) value
+for _, item := range items {
+    go func() {
+        process(item)  // All goroutines process the last item
+    }()
+}
+
+// ✅ Good: Pass variable as parameter
+for _, item := range items {
+    go func(item Item) {
+        process(item)
+    }(item)
+}
+```
+
+### 3. Nil Interface Check
+**Problem:** A nil pointer in an interface is not nil.
+
+```go
+// ❌ Bad: This doesn't work as expected
+func GetUser() *User {
+    var user *User = nil
+    return user
+}
+
+func main() {
+    user := GetUser()
+    if user != nil {  // This is true! Because interface holds type info
+        user.Name()   // Panic!
+    }
+}
+
+// ✅ Good: Return interface directly or check explicitly
+func GetUser() *User {
+    return nil  // This will be nil when checked
+}
+```
+
+### 4. Slice/Map Race Conditions
+**Problem:** Concurrent access to maps and slices without synchronization.
+
+```go
+// ❌ Bad: Race condition
+var cache = make(map[string]string)
+
+func Set(key, value string) {
+    cache[key] = value  // Not thread-safe!
+}
+
+// ✅ Good: Use mutex or sync.Map
+type Cache struct {
+    mu    sync.RWMutex
+    items map[string]string
+}
+
+func (c *Cache) Set(key, value string) {
+    c.mu.Lock()
+    defer c.mu.Unlock()
+    c.items[key] = value
+}
+
+// Or use sync.Map for specific patterns
+var cache sync.Map
+
+func Set(key, value string) {
+    cache.Store(key, value)
+}
+```
+
+### 5. Defer in Loops
+**Problem:** Defer statements in loops accumulate and execute at function end.
+
+```go
+// ❌ Bad: All files stay open until function returns
+func ProcessFiles(files []string) error {
+    for _, filename := range files {
+        f, err := os.Open(filename)
+        if err != nil {
+            return err
+        }
+        defer f.Close()  // Accumulates until function returns
+        // Process file
+    }
+    return nil
+}
+
+// ✅ Good: Use closure or close explicitly
+func ProcessFiles(files []string) error {
+    for _, filename := range files {
+        if err := func() error {
+            f, err := os.Open(filename)
+            if err != nil {
+                return err
+            }
+            defer f.Close()  // Closes at end of closure
+            // Process file
+            return nil
+        }(); err != nil {
+            return err
+        }
+    }
+    return nil
+}
+```
+
+### 6. Ignoring Errors
+**Problem:** Not checking or handling errors.
+
+```go
+// ❌ Bad: Ignoring errors
+func GetUser(id string) *User {
+    user, _ := repo.FindByID(id)  // What if there's an error?
+    return user
+}
+
+// ✅ Good: Handle errors appropriately
+func GetUser(id string) (*User, error) {
+    user, err := repo.FindByID(id)
+    if err != nil {
+        return nil, fmt.Errorf("failed to get user: %w", err)
+    }
+    return user, nil
+}
+```
+
+### 7. Not Closing HTTP Response Bodies
+**Problem:** Leaking connections by not closing response bodies.
+
+```go
+// ❌ Bad: Resource leak
+resp, err := http.Get(url)
+if err != nil {
+    return err
+}
+// Forgot to close body
+
+// ✅ Good: Always close response body
+resp, err := http.Get(url)
+if err != nil {
+    return err
+}
+defer resp.Body.Close()
+
+body, err := io.ReadAll(resp.Body)
+```
+
+### 8. Pointer Receivers vs Value Receivers
+**Problem:** Inconsistent or inappropriate receiver types.
+
+```go
+// ❌ Bad: Inconsistent receiver types
+func (u User) SetName(name string) {
+    u.Name = name  // Won't modify original, use pointer
+}
+
+func (u *User) GetName() string {
+    return u.Name  // Unnecessary pointer for read-only
+}
+
+// ✅ Good: Consistent and appropriate
+func (u *User) SetName(name string) {
+    u.Name = name
+}
+
+func (u User) GetName() string {
+    return u.Name
+}
+```
+
+### 9. Not Using Context
+**Problem:** No way to cancel operations or set timeouts.
+
+```go
+// ❌ Bad: No cancellation or timeout
+func FetchData(url string) ([]byte, error) {
+    resp, err := http.Get(url)  // Can hang forever
+    // ...
+}
+
+// ✅ Good: Use context for cancellation
+func FetchData(ctx context.Context, url string) ([]byte, error) {
+    req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+    if err != nil {
+        return nil, err
+    }
+
+    resp, err := http.DefaultClient.Do(req)
+    // ...
+}
+```
+
+### 10. Channel Deadlocks
+**Problem:** Improper channel usage causing deadlocks.
+
+```go
+// ❌ Bad: Unbuffered channel deadlock
+func SendData() {
+    ch := make(chan int)
+    ch <- 42  // Deadlock! No one receiving
+}
+
+// ✅ Good: Buffered channel or separate goroutine
+func SendData() {
+    ch := make(chan int, 1)  // Buffered
+    ch <- 42
+    val := <-ch
+}
+
+// Or
+func SendData() {
+    ch := make(chan int)
+    go func() {
+        ch <- 42
+    }()
+    val := <-ch
+}
+```
+
+## Code Review Checklist
+
+### Error Handling
+- [ ] All errors are checked and handled
+- [ ] Errors are wrapped with context (`fmt.Errorf` with `%w`)
+- [ ] No naked `panic()` calls
+- [ ] No ignored errors (use `_` only with clear justification)
+
+### Concurrency
+- [ ] Goroutines have proper lifecycle management
+- [ ] No goroutine leaks (context cancellation implemented)
+- [ ] Loop variables passed to goroutines as parameters
+- [ ] No data races (verified with `-race` flag)
+- [ ] Mutexes unlocked with defer immediately after locking
+- [ ] Channels closed by senders only
+
+### Resource Management
+- [ ] Files closed with defer
+- [ ] HTTP response bodies closed with defer
+- [ ] Database connections properly pooled
+- [ ] Context passed and respected
+
+### Performance
+- [ ] No unnecessary allocations in hot paths
+- [ ] String concatenation uses `strings.Builder` in loops
+- [ ] Appropriate use of pointers vs values
+- [ ] Buffered channels sized appropriately
+
+### Security
+- [ ] Input validation at boundaries
+- [ ] No SQL injection (parameterized queries)
+- [ ] Sensitive data not logged
+- [ ] Crypto/rand used for security (not math/rand)
+
+### Testing
+- [ ] Unit tests present (*_test.go)
+- [ ] Table-driven tests used appropriately
+- [ ] No race conditions in tests
+- [ ] Mocks properly configured and verified
+
+### Code Quality
+- [ ] Exported items have godoc comments
+- [ ] Code formatted with gofmt
+- [ ] No golint warnings
+- [ ] Single Responsibility Principle followed
+- [ ] Appropriate error types used
+
+### API Design
+- [ ] Context as first parameter
+- [ ] Errors as last return value
+- [ ] Interfaces small and focused
+- [ ] Struct tags properly defined (json, gorm, validate)
+
+## Anti-Patterns to Avoid
+
+1. **Global Variables**: Avoid mutable global state
+2. **God Objects**: Keep types focused and small
+3. **Premature Optimization**: Profile before optimizing
+4. **Magic Numbers**: Use named constants
+5. **Deep Nesting**: Refactor into separate functions
+6. **Long Functions**: Keep functions short and focused
+7. **Lack of Tests**: Write tests as you code
+8. **Ignoring Context**: Always pass and check context
+9. **Manual Mutex Management**: Use defer for unlocking
+10. **Blocking Operations**: Use timeouts and context
+
+## Best Practices Summary
+
+1. **Always handle errors explicitly**
+2. **Use context for cancellation and timeouts**
+3. **Close resources with defer**
+4. **Pass loop variables to goroutines**
+5. **Lock mutexes with defer**
+6. **Check for data races with -race**
+7. **Keep functions small and focused**
+8. **Use table-driven tests**
+9. **Document exported items**
+10. **Follow Go idioms and conventions**

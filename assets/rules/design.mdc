@@ -1,0 +1,117 @@
+---
+description: Design principles and best practices for software architecture
+alwaysApply: false
+---
+# Design Principles
+
+## Feature Toggles & Controls
+
+- **On-off switch for every new feature**: All new features must have a toggle/switch mechanism (system parameter, feature flag, or configuration) to enable/disable without code deployment
+- **Gradual rollout**: Support phased rollout (e.g., percentage-based, account-based) for risk mitigation
+- **Emergency kill switch**: Critical features should have emergency disable capability in Command Center
+
+## Scalability & Performance
+
+- **API call estimation**: Estimate API call volumes for orders of magnitude (10x, 100x, 1000x) to plan capacity
+- **Load testing**: Test under expected peak loads before production deployment
+- **Resource limits**: Set appropriate limits (rate limiting, connection pools, timeouts) to prevent resource exhaustion
+- **Caching strategy**: Implement appropriate caching layers (local cache, distributed cache) to reduce load
+
+## Resilience & Fault Tolerance
+
+- **Dependency isolation**: Dependency & vendors down should not cause our service down
+  - Use circuit breakers for external dependencies
+  - Implement fallback mechanisms
+  - Graceful degradation when dependencies fail
+- **Timeout configuration**: Ensure to set timeout for 3rd party service, add monitor in Command Center
+  - Set reasonable timeouts for all external calls
+  - Monitor timeout rates and adjust as needed
+  - Alert on timeout thresholds
+- **Retry strategy**: Implement exponential backoff with jitter for transient failures
+- **Bulkhead pattern**: Isolate failures to prevent cascading (separate thread pools, connection pools)
+
+## Compatibility & Versioning
+
+- **Release version compatibility**: Consider release version compatibility during deployment, region failover and between different clusters
+  - Support backward compatibility for at least one major version
+  - Plan for zero-downtime deployments
+  - Handle schema migrations gracefully
+- **Client version compatibility**: Consider client version compatibility
+  - Version APIs appropriately (e.g., `/v1/`, `/v2/`)
+  - Deprecate old versions with sufficient notice
+  - Support multiple client versions during transition periods
+- **Data migration**: Plan for data migration strategies when schema changes
+
+## Security & Privacy
+
+- **Encrypt sensitive data**: Encrypt sensitive password credentials or tokens in database
+  - Use encryption at rest for sensitive fields
+  - Use secure key management
+  - Never log sensitive data (passwords, tokens, PII)
+- **Security review**: Review new urls/apis with security team, ensure input validation, authentication and CSRF are well thought over
+  - Input validation: Validate and sanitize all inputs
+  - Authentication: Use proper authentication mechanisms (JWT, OAuth, etc.)
+  - Authorization: Implement proper authorization checks
+  - CSRF protection: Implement CSRF tokens for state-changing operations
+  - Rate limiting: Protect against abuse and DoS attacks
+- **Principle of least privilege**: Grant minimum necessary permissions
+- **Defense in depth**: Multiple layers of security controls
+
+## Observability & Monitoring
+
+- **Comprehensive logging**: Log important events, errors, and state changes
+  - Use structured logging
+  - Include correlation IDs for tracing
+  - Log at appropriate levels (DEBUG, INFO, WARN, ERROR)
+- **Metrics & monitoring**: Expose metrics for key operations
+  - Request rates, latencies, error rates
+  - Resource utilization (CPU, memory, connections)
+  - Business metrics (success rates, feature usage)
+- **Alerting**: Set up alerts for critical failures and anomalies
+- **Distributed tracing**: Use distributed tracing for complex request flows
+
+## Data Management
+
+- **Data consistency**: Choose appropriate consistency models (strong, eventual)
+- **Transaction boundaries**: Define clear transaction boundaries
+- **Idempotency**: Design operations to be idempotent when possible
+- **Data retention**: Define data retention and deletion policies
+- **Backup & recovery**: Plan for data backup and disaster recovery
+
+## API Design
+
+- **RESTful conventions**: Follow RESTful API design principles
+- **Versioning**: Version APIs explicitly (URL path or header)
+- **Error handling**: Return consistent error response format
+- **Documentation**: Document APIs comprehensively (OpenAPI/Swagger)
+- **Rate limiting**: Implement rate limiting per client/account
+
+## Configuration Management
+
+- **Externalize configuration**: Move configuration out of code
+- **Environment-specific**: Support different configurations per environment
+- **Dynamic configuration**: Use dynamic configuration for runtime changes
+- **Sensitive data**: Store secrets in secure storage, not in code or config files
+
+## Testing Strategy
+
+- **Unit tests**: Test individual components in isolation
+- **Integration tests**: Test component interactions
+- **End-to-end tests**: Test complete user workflows
+- **Load tests**: Test under expected production loads
+- **Chaos engineering**: Test failure scenarios and recovery
+
+## Documentation
+
+- **Code documentation**: Document complex logic and design decisions
+- **API documentation**: Maintain up-to-date API documentation
+- **Runbooks**: Create operational runbooks for common scenarios
+
+## Common Design Patterns
+
+- **Fail-safe defaults**: Default to secure/restrictive settings
+- **Fail fast**: Detect and report errors early
+- **Separation of concerns**: Separate business logic from infrastructure concerns
+- **Single source of truth**: Avoid data duplication, use authoritative sources
+- **Event-driven architecture**: Use events for loose coupling when appropriate
+- **CQRS**: Consider Command Query Responsibility Segregation for complex domains

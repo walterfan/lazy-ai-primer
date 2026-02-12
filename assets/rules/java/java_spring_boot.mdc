@@ -1,0 +1,106 @@
+---
+description: Spring Boot best practices and conventions
+globs: "*.java"
+alwaysApply: false
+---
+
+## Java and Spring Boot Usage
+- Use Java 16 (project standard) - Java 17+ features may not be available.
+- Leverage Spring Boot 3.4.11 features and best practices.
+- Use MyBatis 3.0.3 for database operations (not Spring Data JPA).
+- Implement proper validation using Bean Validation (e.g., `@Valid`, custom validators).
+
+## Spring Boot Best Practices
+
+### 1. Dependency Injection
+- Use constructor injection than field injection with `@Autowired`
+- Use `@Value` for configuration properties
+- Use `@ConfigurationProperties` for grouped properties
+
+### 2. Service Layer Design
+- Services should implement interfaces (e.g., `IApplicationService`)
+- Keep transaction boundaries at service layer
+- Use `@Transactional` appropriately
+- Validate inputs at service entry points
+- Handle exceptions gracefully with custom exceptions
+
+### 3. Configuration Management
+- Use `@ConfigurationProperties` for complex configuration
+- Provide default values using `${property:defaultValue}`
+- Group related properties with prefix
+- Document configuration requirements
+
+**Example:**
+```java
+@ConfigurationProperties(prefix = "app.feature-name")
+@Component
+public class FeatureConfig {
+    private boolean enable = false;
+    private int queryDays = 7;
+    private String exceptionList;
+}
+```
+
+### 4. Logging Standards
+- Use SLF4J with Lombok's `@Slf4j`
+- Log levels:
+  - `ERROR`: System errors, exceptions
+  - `WARN`: Potential issues, deprecated usage
+  - `INFO`: Important business events, job execution
+  - `DEBUG`: Detailed flow, configuration checks
+- Include context: `log.info("Processing request for instanceId={}, prefixPath={}", id, path)`
+- Log exceptions with full stack trace: `log.error("Failed to process", exception)`
+
+## Error Handling
+
+### 1. Exception Strategy
+
+#### Exception Types
+- **[Mandatory]** Use custom exceptions (extend framework exceptions):
+  - `ResourceNotExistException` for not found (404)
+  - `InternalServiceException` for system errors (500)
+  - `UpgradeRequiredException` for version blocks (426)
+  - `IllegalArgumentException` for validation errors (400)
+- **[Mandatory]** Include context in exception messages (what, where, why)
+- **[Mandatory]** Log exceptions at appropriate level before throwing
+- Return meaningful error responses to clients
+
+#### Exception Handling Rules
+- **[Mandatory]** Never catch `Exception` or `Throwable` without re-throwing or handling properly
+- **[Mandatory]** Never ignore exceptions in catch blocks - at minimum, log them
+- **[Mandatory]** Use try-with-resources for AutoCloseable resources
+- **[Mandatory]** Don't use exceptions for flow control
+- Use `finally` blocks to clean up resources (or try-with-resources)
+
+**Example:**
+```java
+// ✅ Good: Specific exception handling
+try {
+    processOrder(order);
+} catch (ResourceNotExistException e) {
+    log.warn("Order not found: {}", order.getId(), e);
+    throw e;
+} catch (InternalServiceException e) {
+    log.error("System error processing order: {}", order.getId(), e);
+    throw new InternalServiceException("Failed to process order", e);
+}
+
+// ❌ Bad: Catching generic Exception and ignoring
+try {
+    processOrder(order);
+} catch (Exception e) {
+    // Ignored - bad practice!
+}
+```
+
+### 2. Validation
+- **[Mandatory]** Validate inputs early (fail fast principle)
+- **[Mandatory]** Validate all user inputs, including:
+  - Parameter ranges (page size, time ranges)
+  - String length limits
+  - Format validation (email, URL, regex patterns)
+  - Business rule validation
+- Use Apache Commons validators where applicable
+- Provide clear validation error messages
+- Check for null/empty with `StringUtils.isBlank()`
+- **[Mandatory]** Use Bean Validation annotations (`@NotNull`, `@Size`, `@Pattern`, etc.) on DTOs

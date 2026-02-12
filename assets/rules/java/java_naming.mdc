@@ -1,0 +1,43 @@
+---
+description: Java naming conventions and code style
+globs: "*.java"
+alwaysApply: false
+---
+
+## Code Style and Structure
+- Write clean, efficient, and well-documented Java code.
+- Use Spring Boot best practices and conventions throughout your code.
+- Implement RESTful API design patterns when creating web services.
+- Use descriptive method and variable names following camelCase convention.
+- Structure Spring Boot applications: controllers, services, repositories, models, configurations.
+
+## Naming Conventions
+
+### Basic Rules
+- **[Mandatory]** Names should NOT start or end with underscore (`_`) or dollar sign (`$`)
+  - ❌ Bad: `_name`, `__name`, `$Object`, `name_`, `name$`, `Object$`
+  - ✅ Good: `name`, `objectName`, `userService`
+
+- **[Mandatory]** Using Chinese, Pinyin, or Pinyin-English mixed spelling is strictly prohibited
+  - ✅ Good: `alibaba`, `taobao`, `hangzhou` (proper names in Pinyin are acceptable)
+  - ❌ Bad: `getYongHuXinXi()`, `shuJuKu()`
+
+- Use PascalCase for class names (e.g., `AgentSdkVersionServiceImpl`, `UserController`, `OrderService`)
+- Use camelCase for method and variable names (e.g., `getSdkVersionNumber`, `findUserById`, `isOrderValid`)
+- Use ALL_CAPS with underscores for constants (e.g., `SYS_PARAM_SDK_VERSION_ALERT`, `MAX_RETRY_ATTEMPTS`, `DEFAULT_PAGE_SIZE`)
+- Interfaces: Start with `I` (e.g., `ISearchService`, `IApplicationService`) - project convention
+- Packages: lowercase with dots (e.g., `com.example.project.service`)
+
+### Class Naming
+- Class names should be nouns in UpperCamelCase
+- Domain models: Use suffix `DO`, `BO`, `DTO`, `VO` (e.g., `UserDO`, `OrderDTO`, `ProductVO`)
+- Service classes: Use suffix `Service` or `ServiceImpl` (e.g., `UserService`, `OrderServiceImpl`)
+- Controller classes: Use suffix `Controller` (e.g., `UserController`, `OrderController`)
+- Exception classes: Use suffix `Exception` (e.g., `ResourceNotExistException`, `InternalServiceException`)
+
+### Method Naming
+- Method names should be verbs in lowerCamelCase
+- Boolean methods: Use `is`, `has`, `can` prefix (e.g., `isValid()`, `hasPermission()`, `canDelete()`)
+- Getter methods: Use `get` prefix (e.g., `getUserId()`)
+- Setter methods: Use `set` prefix (e.g., `setUserName()`)
+- Query methods: Use `find`, `list`, `get`, `query` prefix (e.g., `findById()`, `listAll()`, `getByNamespace()`)

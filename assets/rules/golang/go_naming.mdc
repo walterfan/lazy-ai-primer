@@ -1,0 +1,106 @@
+---
+description: Go naming conventions and code style
+globs: "*.go"
+alwaysApply: false
+---
+
+## Code Style and Structure
+- Write clean, efficient, and well-documented Go code.
+- Follow Go best practices and idiomatic patterns.
+- Implement RESTful API design patterns when creating web services.
+- Use descriptive function and variable names following Go conventions.
+- Structure Go applications: handlers/controllers, services, repositories, models, configs.
+
+## Naming Conventions
+
+### Basic Rules
+- **[Mandatory]** Names should NOT start or end with underscore (`_`) or dollar sign (`$`)
+  - Exception: Test helper functions may use `_` prefix (e.g., `_setupTestDB`)
+  - ❌ Bad: `_name`, `__name`, `$Object`, `name_`, `name$`, `Object$`
+  - ✅ Good: `name`, `objectName`, `userService`
+
+- **[Mandatory]** Using Chinese, Pinyin, or Pinyin-English mixed spelling is strictly prohibited
+  - ✅ Good: `alibaba`, `taobao`, `hangzhou` (proper names in Pinyin are acceptable)
+  - ❌ Bad: `getYongHuXinXi()`, `shuJuKu()`
+
+- Use PascalCase for exported (public) types and functions (e.g., `AgentService`, `GetUserByID`, `NewUserService`)
+- Use camelCase for unexported (private) types and functions (e.g., `userService`, `getUserByID`, `newCache`)
+- Use camelCase for local variables (e.g., `userName`, `userID`, `isValid`)
+- Use ALL_CAPS or MixedCaps for constants (prefer MixedCaps: `MaxRetryAttempts`, `DefaultPageSize`)
+- Interfaces: Do NOT prefix with `I`. Use descriptive names (e.g., `UserRepository`, `CacheManager`)
+- Packages: lowercase, single word preferred, no underscores (e.g., `user`, `cache`, `httputil`)
+
+### Package Naming
+- **[Mandatory]** Use short, lowercase, single-word package names
+- **[Mandatory]** Avoid package name collisions with standard library
+- **[Mandatory]** Package names should be singular, not plural (e.g., `user` not `users`)
+- **[Recommended]** Avoid generic names like `common`, `util`, `helper` (be more specific)
+- ✅ Good: `user`, `cache`, `httputil`, `sqlstore`
+- ❌ Bad: `userPackage`, `user_package`, `Users`, `CommonUtil`
+
+### Type Naming
+- Type names should be nouns in PascalCase (exported) or camelCase (unexported)
+- Struct names: Use descriptive nouns (e.g., `User`, `OrderRequest`, `ProductResponse`)
+- Interface names: Use descriptive names without `I` prefix (e.g., `UserRepository`, `CacheManager`)
+  - For single-method interfaces, consider `-er` suffix (e.g., `Reader`, `Writer`, `Stringer`)
+- Error types: Use suffix `Error` (e.g., `ResourceNotFoundError`, `ValidationError`)
+
+### Function Naming
+- Function names should be verbs in PascalCase (exported) or camelCase (unexported)
+- Boolean functions: Use `Is`, `Has`, `Can` prefix (e.g., `IsValid()`, `HasPermission()`, `CanDelete()`)
+- Getter functions: Do NOT use `Get` prefix unless it performs significant computation or I/O
+  - ✅ Good: `Name()`, `UserID()`, `Config()`
+  - ❌ Bad: `GetName()`, `GetUserID()`, `GetConfig()`
+- Setter functions: Use `Set` prefix (e.g., `SetName()`, `SetUserID()`)
+- Constructor functions: Use `New` prefix (e.g., `NewUserService()`, `NewCache()`)
+
+### Variable Naming
+- Use short names for small scopes (e.g., `i` for loop counters, `ctx` for context)
+- Use longer, descriptive names for larger scopes
+- ✅ Good in loops: `for i := 0; i < len(users); i++`
+- ✅ Good for receivers: `func (u *User) GetName() string`
+- Use conventional names:
+  - `ctx` for `context.Context`
+  - `err` for errors
+  - `db` for database connections
+  - `req` for requests
+  - `resp` for responses
+
+### Constant Naming
+- **[Mandatory]** Use MixedCaps for constants (not UPPER_SNAKE_CASE)
+- ✅ Good: `MaxRetryAttempts`, `DefaultTimeout`, `StatusActive`
+- ❌ Bad: `MAX_RETRY_ATTEMPTS`, `DEFAULT_TIMEOUT`, `STATUS_ACTIVE`
+- Exception: Exported constants matching external conventions may use UPPER_SNAKE_CASE
+
+## Go-Specific Conventions
+
+### Receiver Names
+- **[Mandatory]** Use short, consistent receiver names (1-2 characters)
+- **[Mandatory]** Use the same receiver name throughout the type's methods
+- ✅ Good: `func (u *User) GetName() string`
+- ✅ Good: `func (s *userService) CreateUser(ctx context.Context, user *User) error`
+- ❌ Bad: `func (user *User) GetName() string` (too long)
+- ❌ Bad: Inconsistent receiver names across methods
+
+### Acronyms
+- **[Recommended]** Keep acronyms consistent in capitalization
+- ✅ Good: `UserID`, `HTTPServer`, `URLPath`, `ParseJSON`
+- ❌ Bad: `UserId`, `HttpServer`, `UrlPath`, `ParseJson`
+
+### Error Variables
+- Sentinel error variables should be prefixed with `Err`
+- ✅ Good: `var ErrNotFound = errors.New("resource not found")`
+- ✅ Good: `var ErrInvalidInput = errors.New("invalid input")`
+
+## File Naming
+- **[Mandatory]** Use lowercase with underscores for multi-word file names
+- ✅ Good: `user_service.go`, `http_handler.go`, `data_store.go`
+- ❌ Bad: `UserService.go`, `httpHandler.go`, `dataStore.go`
+- Test files: Use `_test.go` suffix (e.g., `user_service_test.go`)
+
+## Comments and Documentation
+- **[Mandatory]** Document all exported types, functions, constants, and variables
+- **[Mandatory]** Start comments with the name being documented
+- ✅ Good: `// User represents an application user.`
+- ✅ Good: `// NewUserService creates a new user service instance.`
+- ❌ Bad: `// This function creates a new user service.`

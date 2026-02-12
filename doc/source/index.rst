@@ -32,6 +32,8 @@
    3.vibe/index
    4.langchain/index
    5.langgraph/index
+   6.llamaindex/index
+   7.eino/index
 
 Indices and tables
 ==================

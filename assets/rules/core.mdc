@@ -1,0 +1,100 @@
+---
+description: Core programming principles and what makes good code
+alwaysApply: true
+---
+
+# Core Principles
+
+1. **Research First** - Understand before changing (8-step protocol)
+2. **Explore Before Conclude** - Exhaust all search methods before claiming "not found"
+3. **Smart Searching** - Bounded, specific, resource-conscious searches (avoid infinite loops)
+4. **Build for Reuse** - Check for existing tools, create reusable scripts when patterns emerge
+5. **Ask Before Execute** - Request user confirmation before executing actions after research
+6. **Complete Everything** - Fix entire task chains, no partial work
+7. **Trust Code Over Docs** - Reality beats documentation
+8. **Professional Output** - No emojis, technical precision, use English only for documentation
+9. **Absolute Paths** - Eliminate directory confusion
+
+## Design Principles
+
+For comprehensive design principles and best practices, see **[Design Principles](design.mdc)**.
+
+## General Programming Principles
+
+### 1. Clean and Readable Code
+
+Good code must look comfortable and clean, like a good article - not verbose, easy to understand, with clear beginning and end.
+
+- **Clear structure**: Each layer, module, and function has clear responsibilities
+- **Self-documenting**: Code should be self-explanatory through naming
+- **Simple interfaces**: Interfaces are contracts - keep them simple, easy to understand and use. Narrow interfaces are better than wide ones
+- **Follow conventions**: Adhere to code style guides (e.g., [Google Java Style Guide](https://github.com/google/styleguide))
+
+### 2. Fundamental Coding Principles
+
+* KISS - Keep It Simple and Straightforward
+* DRY - Don't Repeat Yourself
+* SOLID - Single Responsibility, Open/Closed, Liskov Substitution, Dependency Inversion, Interface Segregation
+
+#### Package Design Principles
+
+Follow package cohesion and coupling principles:
+* **Cohesion** (REP, CCP, CRP): Package related components that change together and are reused together
+* **Coupling** (ADP, SDP, SAP): Avoid cycles, depend on stable abstractions
+
+### 3. Code Should Be Easy to Understand, Test, and Modify
+
+- **Encapsulate complexity**: Hide implementation details behind clean interfaces
+- **Separate concerns**: Distinguish between frequently changing and relatively stable code
+- **Extract configuration**: Move variable parameters to configuration files
+- **Apply SOLID and package principles**: High cohesion, low coupling, depend on abstractions
+
+#### Example: MVC Pattern
+Why separate Model, View, and Controller?
+- Separates what changes frequently from what stays stable
+- Separates parts that don't change together
+- Reduces the scope of each change
+
+#### Change Strategy (Best to Worst)
+1. **Best**: Change configuration
+2. **Good**: Add a few lines of code or pass different parameters
+3. **Worst**: Modify multiple places, add multiple conditions (shotgun surgery)
+
+### 4. Comprehensive Code
+
+Handle all logical flows and exceptional cases thoroughly.
+
+- **Edge cases**: Consider boundary conditions, null values, empty collections
+- **Error handling**: Handle exceptions gracefully with appropriate recovery
+- **Testing**: Unit and module tests should cover exception logic and boundaries
+- **SLA considerations**: Consider service quality requirements:
+
+  1. **Functionality**: Does it work correctly?
+  2. **Stability**: Does it remain stable under load?
+  3. **Reliability**: Does it handle failures gracefully?
+  4. **Performance**: Does it meet performance requirements?
+  5. **Maintainability**: Is it easy to maintain and modify?
+  6. **Portability**: Can it run in different environments?
+  7. **Flexibility**: Can it adapt to changing requirements?
+
+### 5. Code Should Evolve
+
+Code ages, just like people. New business requirements, technologies, architectures, and frameworks emerge constantly.
+
+- **Embrace change**: Be bold in experimentation, careful in adoption, gradual in evolution
+- **Don't cling to old ways**: But don't blindly follow trends either
+- **Encapsulate business logic**: Core business logic rarely changes dramatically
+- **Even when rewriting**: Understand and reference the old system's business processes
+
+### The Zen of Programming
+
+Inspired by Python's Zen, applicable to most programming languages:
+
+- **Beautiful is better than ugly**: Write aesthetically pleasing code
+- **Explicit is better than implicit**: Make intentions clear
+- **Simple is better than complex**: Prefer simplicity
+- **Readability counts**: Code is read more often than written
+- **Errors should never pass silently**: Handle errors explicitly
+- **In the face of ambiguity, refuse the temptation to guess**: Ask for clarification
+- **Now is better than never** (although never is often better than right now): Act decisively but thoughtfully
+- **If the implementation is hard to explain, it's a bad idea**: Complexity should be justified

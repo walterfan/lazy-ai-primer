@@ -1,0 +1,59 @@
+---
+description: Common pitfalls and code review checklist
+globs: "*.java"
+alwaysApply: false
+---
+
+## Common Pitfalls to Avoid
+
+### Code Quality
+1. **[Mandatory]** Don't catch generic `Exception` without good reason (see **java_spring_boot.mdc** for detailed exception handling rules)
+2. **[Mandatory]** Don't return null - use `Optional<T>` instead
+3. **[Mandatory]** Don't use `String` concatenation in loops - use `StringBuilder` or `String.join()`
+4. **[Mandatory]** Don't ignore compiler warnings
+5. **[Mandatory]** Don't commit commented-out code
+6. **[Mandatory]** Don't hardcode configuration values
+7. **[Mandatory]** Don't use `System.out.println` or `System.err.println` - use logging framework
+8. **[Mandatory]** Don't create unnecessary objects in hot paths
+9. **[Mandatory]** Don't use deprecated APIs without justification and migration plan
+10. **[Mandatory]** Don't mix business logic with framework code
+
+### Object-Oriented Programming
+11. **[Mandatory]** Don't override `equals()` without overriding `hashCode()` (and vice versa)
+12. **[Mandatory]** Don't use `==` to compare wrapper types (use `.equals()` or unbox)
+13. **[Mandatory]** Don't modify collection while iterating (use `Iterator.remove()` or collect first)
+14. **[Mandatory]** Don't use `clone()` method - prefer copy constructors or factory methods
+
+### Collections
+15. **[Mandatory]** Don't use `subList()` result as parameter for other operations (it's a view)
+16. **[Mandatory]** Initialize collections with appropriate capacity when size is known
+17. **[Mandatory]** Use `isEmpty()` instead of `size() == 0` for better readability
+
+### Flow Control
+18. **[Mandatory]** Don't use `switch` without `default` case
+19. **[Mandatory]** Use `break` in `switch` cases (or document fall-through intent)
+20. **[Mandatory]** Prefer `if-else` over nested ternary operators for readability
+
+### Lombok Pitfalls
+21. **[Mandatory]** Don't use `@Data` on entity classes - use `@Getter/@Setter` explicitly
+22. **[Mandatory]** Don't use `@EqualsAndHashCode` without specifying `exclude` or `of` parameter
+23. **[Mandatory]** Don't use `@ToString` without excluding sensitive data and collections
+24. **[Mandatory]** Don't use `@Builder` on entities that have lifecycle methods
+25. **[Mandatory]** Don't forget `@NoArgsConstructor` when using `@AllArgsConstructor` on MyBatis entities
+
+**For detailed Lombok best practices, see [java_database.mdc - Lombok Annotation Best Practices](#)**
+
+## Code Review Checklist
+
+- [ ] Code follows Google Java Style Guide
+- [ ] All tests pass
+- [ ] No new linter warnings
+- [ ] Proper error handling implemented
+- [ ] Logging is appropriate and informative
+- [ ] No sensitive data in logs or error messages
+- [ ] Documentation updated (JavaDoc, README)
+- [ ] Configuration properly externalized
+- [ ] Performance impact considered
+- [ ] Security implications reviewed
+- [ ] Database migrations included if schema changes
+- [ ] Backward compatibility maintained

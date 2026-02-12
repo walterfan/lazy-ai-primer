@@ -1,0 +1,127 @@
+---
+description: Database, MyBatis, and entity design best practices
+globs: "*.java"
+alwaysApply: false
+---
+
+## Database & Persistence
+
+### 1. MyBatis Usage
+- **[Mandatory]** Define SQL in XML mapper files (not annotations) - project convention
+- **[Mandatory]** Use parameterized queries to prevent SQL injection
+  - Always use `#{param}` for parameter binding (not `${param}`)
+  - `${param}` should only be used for dynamic table/column names, and must be validated/whitelisted
+- Follow naming: `Mapper.xml` in `resources/mapper/`
+- **[Mandatory]** Never concatenate user input into SQL strings
+- Use MyBatis `<if>`, `<choose>`, `<foreach>` tags for dynamic SQL
+
+**Example:**
+```xml
+<!-- ✅ Good: Parameterized query with explicit fields -->
+<select id="findById" resultType="User">
+    SELECT id, name, email, created_time, updated_time 
+    FROM user 
+    WHERE id = #{id}
+</select>
+
+<!-- ❌ Bad: Using SELECT * -->
+<select id="findById" resultType="User">
+    SELECT * FROM user WHERE id = #{id}
+</select>
+
+<!-- ❌ Bad: String concatenation (SQL injection risk) -->
+<select id="findById" resultType="User">
+    SELECT id, name, email FROM user WHERE id = ${id}
+</select>
+```
+
+### 2. Entity Design
+- Extend `BaseEntity` for common fields (id, timestamps, audit)
+- Use Lombok `@Getter/@Setter` for entity classes
+- **[Mandatory]** Implement `equals()` and `hashCode()` together for entities used in collections
+  - Use same fields for both methods
+  - If using Lombok `@EqualsAndHashCode`, **MUST** exclude problematic fields:
+    - Collections (e.g., `@EqualsAndHashCode(exclude = {"userList", "orderSet"})`)
+    - Lazy-loaded fields
+    - Transient fields that shouldn't affect equality
+    - Fields from parent classes (use `callSuper = true` if needed)
+- **[Mandatory]** Override `toString()` method (Lombok `@ToString` is acceptable)
+  - **NEVER** include sensitive data in `toString()` output (see **java_security.mdc** for complete sensitive data handling rules)
+  - If using Lombok `@ToString`, **MUST** exclude:
+    - Sensitive fields (e.g., `@ToString(exclude = {"password", "creditCardNumber"})`)
+    - Collections to avoid performance issues
+    - Fields that could cause circular references
+- Keep entities focused on database mapping
+- Use immutable objects where possible (consider `@Value` from Lombok for value objects)
+
+#### Lombok Annotation Best Practices
+- **[Mandatory]** Prefer `@Getter/@Setter` over `@Data` for entities
+  - `@Data` includes `@EqualsAndHashCode` and `@ToString` which can cause issues
+  - Use explicit annotations for better control
+- **[Mandatory]** When using `@EqualsAndHashCode`, always specify `exclude` or `of` parameter
+  - Default behavior includes all fields, which can cause problems with collections
+  - Example: `@EqualsAndHashCode(of = {"id", "name"})` or `@EqualsAndHashCode(exclude = {"orderList"})`
+- **[Mandatory]** When using `@ToString`, always exclude sensitive data and collections
+  - Example: `@ToString(exclude = {"password", "creditCardNumber", "userList"})`
+- **[Recommended]** Avoid `@Builder` on entity classes that extend `BaseEntity`
+  - Can cause issues with `initEntity()` and lifecycle methods
+  - Use `@Builder` on DTOs/VOs instead
+- **[Mandatory]** Be cautious with `@AllArgsConstructor` on entities
+  - MyBatis requires no-args constructor: use `@NoArgsConstructor` and `@AllArgsConstructor` together
+  - Or use `@RequiredArgsConstructor` for final fields only
+
+**Example:**
+```java
+@Getter
+@Setter
+@NoArgsConstructor
+@EqualsAndHashCode(of = {"id", "name"})  // Only include key fields
+@ToString(exclude = {"creditCardNumber", "password"})  // Exclude sensitive data
+public class User extends BaseEntity {
+    private String id;
+    private String name;
+    private String creditCardNumber;  // Excluded from toString
+    private List<Order> orders;  // Excluded from equals/hashCode
+}
+```
+
+### 3. Transaction Management
+- **[Mandatory]** Keep transactions short and focused
+- **[Mandatory]** Use read-only transactions where possible: `@Transactional(readOnly = true)`
+- **[Mandatory]** Specify transaction isolation level explicitly when needed
+- Handle optimistic locking conflicts
+- Avoid N+1 query problems
+- **[Mandatory]** Don't use `@Transactional` on private methods (Spring AOP limitation)
+- **[Mandatory]** Don't catch and swallow exceptions in `@Transactional` methods without careful consideration
+- Use `@Transactional(rollbackFor = Exception.class)` if you want to rollback on checked exceptions
+
+## Performance Considerations - Database Optimization
+
+### SQL Best Practices
+- **[Mandatory]** Use pagination for large result sets (limit/offset or cursor-based)
+- **[Mandatory]** Create appropriate database indexes on frequently queried columns
+- **[Mandatory]** Avoid `SELECT *` - specify columns explicitly
+- **[Mandatory]** Use batch operations where possible (`batchInsert`, `batchUpdate`)
+- **[Mandatory]** Monitor and optimize slow queries
+- **[Mandatory]** Use `COUNT(*)` instead of `COUNT(column)` when counting all rows
+- **[Mandatory]** Use `LIMIT` in subqueries to prevent full table scans
+
+### Index Rules
+- **[Mandatory]** Create indexes on foreign keys
+- **[Mandatory]** Create composite indexes for multi-column queries (order matters)
+- **[Recommended]** Use covering indexes for frequently accessed columns
+- **[Mandatory]** Don't create too many indexes (balance query performance vs write performance)
+- **[Mandatory]** Monitor index usage and remove unused indexes
+
+### Query Optimization
+- **[Mandatory]** Avoid functions on indexed columns in WHERE clauses (prevents index usage)
+- **[Mandatory]** Use `EXPLAIN` to analyze query plans
+- **[Mandatory]** Avoid `OR` conditions that prevent index usage (use `UNION` instead)
+- **[Mandatory]** Use appropriate join types (INNER vs LEFT JOIN)
+
+## Performance Considerations - Caching Strategy
+- Use Guava `LoadingCache` for in-memory caching
+- Use Redis for distributed caching
+- Set appropriate TTL values
+- Implement cache invalidation on updates
+- Document cache keys and eviction policies
