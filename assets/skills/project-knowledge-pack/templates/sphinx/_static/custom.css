@@ -1,0 +1,96 @@
+/* Custom CSS for Project Knowledge Pack documentation */
+
+/* Code blocks */
+.highlight {
+    border-radius: 4px;
+}
+
+/* Admonitions */
+.admonition {
+    border-radius: 4px;
+    margin: 1em 0;
+}
+
+/* Tables */
+table.docutils {
+    border-collapse: collapse;
+    border: none;
+}
+
+table.docutils td,
+table.docutils th {
+    border: 1px solid #ddd;
+    padding: 8px 12px;
+}
+
+table.docutils th {
+    background-color: #f5f5f5;
+    font-weight: bold;
+}
+
+/* Navigation */
+.wy-nav-content {
+    max-width: 1200px;
+}
+
+/* Custom classes for PKP */
+.pkp-capability {
+    display: inline-block;
+    padding: 4px 12px;
+    margin: 4px;
+    border-radius: 4px;
+    font-weight: bold;
+}
+
+.pkp-capability.locate {
+    background-color: #e3f2fd;
+    color: #1976d2;
+}
+
+.pkp-capability.understand {
+    background-color: #f3e5f5;
+    color: #7b1fa2;
+}
+
+.pkp-capability.execute {
+    background-color: #e8f5e9;
+    color: #388e3c;
+}
+
+.pkp-capability.verify {
+    background-color: #fff3e0;
+    color: #f57c00;
+}
+
+/* Code references with line numbers */
+.code-ref {
+    font-family: monospace;
+    background-color: #f5f5f5;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.9em;
+}
+
+/* Status badges */
+.status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 0.85em;
+    font-weight: bold;
+}
+
+.status-badge.proposed {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.status-badge.accepted {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.status-badge.deprecated {
+    background-color: #f8d7da;
+    color: #721c24;
+}

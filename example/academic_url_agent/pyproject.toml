@@ -1,0 +1,29 @@
+[project]
+name = "academic-url-agent"
+version = "0.2.1"
+description = "LangGraph ReAct Agent: fetch, translate, summarize, mindmap"
+authors = [
+    {name = "Walter Fan",email = "walter.fan@zoom.us"}
+]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.32.0",
+    "beautifulsoup4>=4.12.0",
+    "readability-lxml>=0.8.0",
+    "playwright>=1.40.0",
+    "python-dotenv>=1.0.0",
+    "langchain-core>=0.3.0",
+    "langchain-openai>=0.3.0",
+    "langgraph>=0.2.0",
+]
+
+[project.scripts]
+url-translator = "academic_url_agent.main:main"
+
+[tool.poetry]
+packages = [{include = "academic_url_agent", from = "src"}]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
