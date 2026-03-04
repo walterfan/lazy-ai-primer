@@ -1,54 +1,83 @@
-# Artificial Intelligence Primer
+# AI 时代的软件工程：从敏捷开发到氛围编程
 
-## 🎯 What's AI
-
-> ``The exciting new effort to make computers think ... machines with minds, in the full and literal sense'' (Haugeland, 1985)
-
-> ``The automation of activities that we associate with human thinking, activities such as decision-making, problem solving, learning ...'' (Bellman, 1978)
-
-> ``The study of mental faculties through the use of computational models'' (Charniak and McDermott, 1985)
-
-> ``The study of the computations that make it possible to perceive, reason, and act'' (Winston, 1992)
-
-> ``The art of creating machines that perform functions that require intelligence when performed by people'' (Kurzweil, 1990)
-
-> ``The study of how to make computers do things at which, at the moment, people are better'' (Rich and Knight, 1991)
-
-> ``A field of study that seeks to explain and emulate intelligent behavior in terms of computational processes'' (Schalkoff, 1990)
-
-> ``The branch of computer science that is concerned with the automation of intelligent behavior'' (Luger and Stubblefield, 1993)
-
-
-- 从智能的角度来看
-
-  人工智能使机器变得 "智能" -- 按照我们所期望的以人类的方式行事。
-
-  无法区分计算机响应和人类响应的情况被称为图灵测试。
-
-- 从研究角度来看
-
-  "人工智能是研究如何让计算机去做目前人类做得更好的事情"[Rich and Knight，1991，p.3]
-
-  人工智能始于 20 世纪 60 年代初——最初的尝试是玩游戏（跳棋）、定理证明（一些简单的定理）和一般问题解决（仅非常简单的任务）
-
-  其研究领域包括：
-
-    - 正式任务（数学、游戏），
-    - 日常任务（感知、机器人、自然语言、常识推理）
-    - 专家任务（财务分析、医学诊断、工程、科学分析和其他领域）
-    - 等等
-
-- 从商业角度来看
-
-    人工智能是一套非常强大的工具，以及使用这些工具解决业务问题的方法。
-
-- 从编程的角度来看
-
-    人工智能包括符号编程、问题解决和搜索的研究, 包括图像与音视频的识别与生成, 自然语言处理, 机器学习, 神经网络, 机器人, 等等
+> 本书系统性地探讨了 AI 时代软件工程的深刻变革。从传统的瀑布模型到敏捷开发，再到如今的 AI 辅助编程和氛围编程（Vibe Coding），软件开发的方法论、工具链和工程师的角色都在经历前所未有的转变。
+>
+> 本书不仅回顾历史、分析现状，更着眼未来，帮助每一位软件工程师在 AI 浪潮中找到自己的位置，顺势而为。
 
 ---
 
-## 📚 人工智能入门教程 - 从基础概念到实战应用
+## 📖 目录
+
+### 第一部分：回顾与反思 — 软件工程的前世今生
+
+| 章节 | 标题 |
+|------|------|
+| 第一章 | 软件工程的起源与演进 |
+| 第二章 | 敏捷革命 — 从计划驱动到价值驱动 |
+| 第三章 | DevOps 与云原生 — 打破开发与运维的壁垒 |
+| 第四章 | 软件架构的演进 — 从单体到智能体 |
+| 第五章 | 软件质量与工程实践的变迁 |
+
+### 第二部分：变革之风 — AI 如何重塑软件开发
+
+| 章节 | 标题 |
+|------|------|
+| 第六章 | AI 编程助手的崛起 |
+| 第七章 | 大语言模型基础 — 开发者需要知道的 |
+| 第八章 | AI 驱动的软件开发生命周期 |
+| 第九章 | AI 时代的代码审查与质量保证 |
+| 第十章 | AI 时代的团队协作与项目管理 |
+
+### 第三部分：氛围编程 — 新范式的崛起
+
+| 章节 | 标题 |
+|------|------|
+| 第十一章 | 什么是氛围编程（Vibe Coding） |
+| 第十二章 | Cursor — 重新定义代码编辑器 |
+| 第十三章 | Claude Code — 终端中的 AI 软件工程师 |
+| 第十四章 | 氛围编程的边界与风险 |
+| 第十五章 | 超越氛围编程 — 意图驱动开发 |
+
+### 第四部分：AI Agent 开发深度解析
+
+| 章节 | 标题 |
+|------|------|
+| 第十六章 | AI Agent 概论 — 从聊天机器人到自主智能体 |
+| 第十七章 | Agent 架构模式深度解析 |
+| 第十八章 | Agent 开发框架对比与实战 |
+| 第十九章 | Agent 的工具系统设计 |
+| 第二十章 | Agent 的记忆与状态管理 |
+| 第二十一章 | 多 Agent 系统与协作模式 |
+| 第二十二章 | Agent 的评估、测试与可观测性 |
+
+### 第五部分：工程师的自我进化
+
+| 章节 | 标题 |
+|------|------|
+| 第二十三章 | 程序员的认知转变 — 从编码者到架构师 |
+| 第二十四章 | AI 时代的学习方法论 |
+| 第二十五章 | AI 时代的职业发展路径 |
+| 第二十六章 | AI 时代的工程文化与团队建设 |
+| 第二十七章 | AI 时代的工程伦理与责任 |
+
+### 第六部分：展望未来
+
+| 章节 | 标题 |
+|------|------|
+| 第二十八章 | 软件工程的下一个十年 |
+| 第二十九章 | 构建你的 AI 工具箱 |
+| 第三十章 | 写给每一位软件工程师的信 |
+
+### 附录：实战项目
+
+| 附录 | 标题 |
+|------|------|
+| 附录 A | 实战项目 — AI Coach 虚拟学习教练 |
+| 附录 B | 实战项目 — AI Editor 虚拟书稿编辑 |
+
+---
+
+## 📚 入门教程 — 从基础概念到实战应用
 
 ### 1. 人工智能基础 (AI Fundamentals)
 
@@ -182,10 +211,14 @@ Go 语言 LLM 应用框架（CloudWeGo），类型安全、流式优先、可组
 - [LangChain 官方文档](https://python.langchain.com/)
 - [LangGraph 官方文档](https://langchain-ai.github.io/langgraph/)
 - [LlamaIndex 官方文档](https://docs.llamaindex.ai/)
-- [Eino User Manual \| CloudWeGo](https://www.cloudwego.io/docs/eino/)
+- [Eino User Manual | CloudWeGo](https://www.cloudwego.io/docs/eino/)
 - [PyTorch 官方文档](https://pytorch.org/docs/)
 - [Hugging Face](https://huggingface.co/)
 
 ## 📝 License
 
 CC0-1.0 license
+
+---
+
+*作者：Walter Fan | 2026 年*
