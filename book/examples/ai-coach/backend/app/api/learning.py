@@ -151,8 +151,13 @@ async def get_progress(goal_id: str, request: Request):
         try:
             from llama_index.llms.openai import OpenAI
             from app.core.config import get_settings
+            from app.core.openai_client import get_openai_client_kwargs
             settings = get_settings()
-            llm = OpenAI(model=settings.OPENAI_MODEL, api_key=settings.OPENAI_API_KEY)
+            llm = OpenAI(
+                model=settings.OPENAI_MODEL,
+                api_key=settings.OPENAI_API_KEY,
+                **get_openai_client_kwargs(settings),
+            )
             coach_response = llm.complete(coach_prompt)
             coach_feedback = str(coach_response)
         except Exception as e:

@@ -2,6 +2,7 @@
 from openai import OpenAI
 from loguru import logger
 from app.core.config import get_settings
+from app.core.openai_client import get_openai_client_kwargs
 
 SYSTEM_PROMPT = """你是一位经验丰富的书籍编辑助手（AI Editor）。你的职责是：
 
@@ -19,7 +20,10 @@ class ChatAgent:
 
     def __init__(self):
         self.settings = get_settings()
-        self.client = OpenAI(api_key=self.settings.OPENAI_API_KEY)
+        self.client = OpenAI(
+            api_key=self.settings.OPENAI_API_KEY,
+            **get_openai_client_kwargs(self.settings),
+        )
 
     def respond(
         self,

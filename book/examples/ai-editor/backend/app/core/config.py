@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o"
     OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
+    OPENAI_BASE_URL: str = ""
+    OPENAI_SSL_VERIFY: bool = True
+    OPENAI_CA_BUNDLE: str = ""
 
     CHROMA_PERSIST_DIR: str = "./data/chroma_db"
     CHUNK_SIZE: int = 1024

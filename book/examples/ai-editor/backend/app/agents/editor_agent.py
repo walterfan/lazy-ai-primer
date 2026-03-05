@@ -2,6 +2,7 @@
 from loguru import logger
 from openai import OpenAI
 from app.core.config import get_settings
+from app.core.openai_client import get_openai_client_kwargs
 from diff_match_patch import diff_match_patch
 
 
@@ -126,7 +127,10 @@ class EditorAgent:
 
     def __init__(self):
         self.settings = get_settings()
-        self.client = OpenAI(api_key=self.settings.OPENAI_API_KEY)
+        self.client = OpenAI(
+            api_key=self.settings.OPENAI_API_KEY,
+            **get_openai_client_kwargs(self.settings),
+        )
         self.dmp = diff_match_patch()
 
     def edit(
@@ -207,7 +211,10 @@ class WriterAgent:
 
     def __init__(self):
         self.settings = get_settings()
-        self.client = OpenAI(api_key=self.settings.OPENAI_API_KEY)
+        self.client = OpenAI(
+            api_key=self.settings.OPENAI_API_KEY,
+            **get_openai_client_kwargs(self.settings),
+        )
 
     def write(
         self,

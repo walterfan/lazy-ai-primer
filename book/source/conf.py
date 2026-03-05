@@ -3,8 +3,8 @@
 
 # -- Project information -----------------------------------------------------
 project = 'AI 时代的软件工程：从敏捷开发到氛围编程'
-copyright = '2026, Walter Fan'
-author = 'Walter Fan'
+copyright = '2026, Walter Fan, AI 辅助创作'
+author = 'Walter Fan, AI Agent'
 release = '1.0'
 
 # -- General configuration ---------------------------------------------------

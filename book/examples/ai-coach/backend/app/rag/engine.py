@@ -21,6 +21,7 @@ from llama_index.vector_stores.chroma import ChromaVectorStore
 import chromadb
 
 from app.core.config import get_settings
+from app.core.openai_client import get_openai_client_kwargs
 
 
 # 自定义 QA Prompt
@@ -54,14 +55,17 @@ class RAGEngine:
     async def initialize(self):
         """初始化 RAG 引擎"""
         # 配置 LlamaIndex 全局设置
+        _extra = get_openai_client_kwargs(self.settings)
         LlamaSettings.llm = OpenAI(
             model=self.settings.OPENAI_MODEL,
             temperature=0.1,
             api_key=self.settings.OPENAI_API_KEY,
+            **_extra,
         )
         LlamaSettings.embed_model = OpenAIEmbedding(
             model=self.settings.OPENAI_EMBEDDING_MODEL,
             api_key=self.settings.OPENAI_API_KEY,
+            **_extra,
         )
         LlamaSettings.node_parser = SentenceSplitter(
             chunk_size=self.settings.CHUNK_SIZE,

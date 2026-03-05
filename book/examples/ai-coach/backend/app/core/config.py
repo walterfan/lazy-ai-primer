@@ -14,10 +14,13 @@ class Settings(BaseSettings):
     # 数据库
     DATABASE_URL: str = "sqlite+aiosqlite:///./data/coach.db"
     
-    # OpenAI
+    # OpenAI (also supports self-hosted / OpenAI-compatible APIs)
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o"
     OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
+    OPENAI_BASE_URL: str = ""  # e.g. https://your-llm.example.com/v1
+    OPENAI_SSL_VERIFY: bool = True  # set False for self-signed certs (prefer OPENAI_CA_BUNDLE)
+    OPENAI_CA_BUNDLE: str = ""  # path to CA cert file for self-signed; overrides OPENAI_SSL_VERIFY
     
     # RAG
     CHROMA_PERSIST_DIR: str = "./data/chroma_db"

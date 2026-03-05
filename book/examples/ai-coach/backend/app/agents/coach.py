@@ -3,6 +3,7 @@ from loguru import logger
 from llama_index.llms.openai import OpenAI
 from llama_index.core.llms import ChatMessage, MessageRole
 from app.core.config import get_settings
+from app.core.openai_client import get_openai_client_kwargs
 
 
 # 不同模式的系统提示词
@@ -50,6 +51,7 @@ class CoachAgent:
             model=self.settings.OPENAI_MODEL,
             temperature=0.7,
             api_key=self.settings.OPENAI_API_KEY,
+            **get_openai_client_kwargs(self.settings),
         )
 
     async def respond(
