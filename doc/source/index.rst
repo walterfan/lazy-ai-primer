@@ -34,6 +34,8 @@
    5.langgraph/index
    6.llamaindex/index
    7.eino/index
+   8.nanobot/index
+   8.nanobot/index.zh
 
 Indices and tables
 ==================

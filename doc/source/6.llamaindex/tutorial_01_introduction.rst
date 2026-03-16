@@ -41,7 +41,7 @@ LlamaIndex（原名 GPT Index）是一个专为大语言模型设计的数据框
                       └─────────────┘
 
 LlamaIndex 的核心优势
---------------------
+----------------------
 
 .. list-table::
    :header-rows: 1

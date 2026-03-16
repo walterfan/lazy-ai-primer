@@ -345,14 +345,12 @@ no_text 模式
            context = "\n\n".join(context_parts)
 
            # 3. 构建提示
-           prompt = f"""基于以下参考资料回答问题：
-
-参考资料：
-{context}
-
-问题：{query_str}
-
-请提供详细的回答，并引用相关的参考资料编号。"""
+           prompt = (
+               f"基于以下参考资料回答问题：\n\n"
+               f"参考资料：\n{context}\n\n"
+               f"问题：{query_str}\n\n"
+               f"请提供详细的回答，并引用相关的参考资料编号。"
+           )
 
            # 4. 调用 LLM 生成回答
            response = self.llm.complete(prompt)
