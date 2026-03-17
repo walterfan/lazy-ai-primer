@@ -36,6 +36,7 @@
    7.eino/index
    8.nanobot/index
    8.nanobot/index.zh
+   9.picoclaw/index
 
 Indices and tables
 ==================
